@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
+  "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
+  "real_run_start_aest": "2026-10-06T21:12:00+10:00",
+  "updated_aest": "2026-10-07T12:30:00+10:00",
+  "trades": [
+    {
+      "id": "d1",
+      "time_aest": "2026-10-05T09:00:00+10:00",
+      "action": "DEPOSIT",
+      "token": "SOL",
+      "mint": null,
+      "sol": 0.2,
+      "tokens": null,
+      "usd_at_time": 20,
+      "fee_sol": 0,
+      "fee_breakdown": null,
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "Mockd11111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "reason": "mock d1",
+      "run": "real",
+      "entry_snapshot": null,
+      "exit_reason": null,
+      "planned_targets": null
+    },
+    {
+      "id": "beee",
+      "time_aest": "2026-10-08T09:00:00+10:00",
+      "action": "BUY",
+      "token": "EEE",
+      "mint": "EEEmint1111111111111111111111111111111111111",
+      "sol": 0.05,
+      "tokens": 100,
+      "usd_at_time": null,
+      "fee_sol": 0,
+      "fee_breakdown": null,
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.0005,
+      "tx": "Mockbeee11111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "reason": "mock beee",
+      "run": "real",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": []
+      },
+      "exit_reason": null,
+      "planned_targets": {
+        "rule_set": "real-run-v1",
+        "take_profit": [
+          {
+            "x": 1.5,
+            "sell_frac": 0.3333333333333333
+          },
+          {
+            "x": 2,
+            "sell_frac": 0.3333333333333333
+          }
+        ],
+        "trail_pct": 25,
+        "stop_x": 0.65,
+        "time_stop_hours": 6,
+        "keep_min_frac": 0,
+        "note": "real-run rules"
+      }
+    },
+    {
+      "id": "bfff",
+      "time_aest": "2026-10-08T10:00:00+10:00",
+      "action": "BUY",
+      "token": "FFF",
+      "mint": "FFFmint1111111111111111111111111111111111111",
+      "sol": 0.05,
+      "tokens": 100,
+      "usd_at_time": null,
+      "fee_sol": 0,
+      "fee_breakdown": null,
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.0005,
+      "tx": "Mockbfff11111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "reason": "mock bfff",
+      "run": "real",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": []
+      },
+      "exit_reason": null,
+      "planned_targets": {
+        "rule_set": "real-run-v1",
+        "take_profit": [
+          {
+            "x": 1.5,
+            "sell_frac": 0.3333333333333333
+          },
+          {
+            "x": 2,
+            "sell_frac": 0.3333333333333333
+          }
+        ],
+        "trail_pct": 25,
+        "stop_x": 0.65,
+        "time_stop_hours": 6,
+        "keep_min_frac": 0,
+        "note": "real-run rules"
+      }
+    },
+    {
+      "id": "seee",
+      "time_aest": "2026-10-08T12:00:00+10:00",
+      "action": "SELL",
+      "token": "EEE",
+      "mint": "EEEmint1111111111111111111111111111111111111",
+      "sol": 0.001,
+      "tokens": 100,
+      "usd_at_time": null,
+      "fee_sol": 0,
+      "fee_breakdown": null,
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.00001,
+      "tx": "Mockseee11111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "reason": "mock seee",
+      "run": "real",
+      "entry_snapshot": null,
+      "exit_reason": "stop",
+      "planned_targets": null
+    },
+    {
+      "id": "sfff",
+      "time_aest": "2026-10-08T13:00:00+10:00",
+      "action": "SELL",
+      "token": "FFF",
+      "mint": "FFFmint1111111111111111111111111111111111111",
+      "sol": 0.01,
+      "tokens": 100,
+      "usd_at_time": null,
+      "fee_sol": 0,
+      "fee_breakdown": null,
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.0001,
+      "tx": "Mocksfff11111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "reason": "mock sfff",
+      "run": "real",
+      "entry_snapshot": null,
+      "exit_reason": "stop",
+      "planned_targets": null
+    },
+    {
+      "id": "bggg",
+      "time_aest": "2026-10-08T14:00:00+10:00",
+      "action": "BUY",
+      "token": "GGG",
+      "mint": "GGGmint1111111111111111111111111111111111111",
+      "sol": 0.05,
+      "tokens": 100,
+      "usd_at_time": null,
+      "fee_sol": 0,
+      "fee_breakdown": null,
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.0005,
+      "tx": "Mockbggg11111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "reason": "mock bggg",
+      "run": "real",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": []
+      },
+      "exit_reason": null,
+      "planned_targets": {
+        "rule_set": "real-run-v1",
+        "take_profit": [
+          {
+            "x": 1.5,
+            "sell_frac": 0.3333333333333333
+          },
+          {
+            "x": 2,
+            "sell_frac": 0.3333333333333333
+          }
+        ],
+        "trail_pct": 25,
+        "stop_x": 0.65,
+        "time_stop_hours": 6,
+        "keep_min_frac": 0,
+        "note": "real-run rules"
+      }
+    }
+  ]
+}

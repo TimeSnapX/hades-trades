@@ -1,0 +1,20 @@
+{
+  "id": "/hades-trades/",
+  "name": "Hades Trades",
+  "short_name": "Hades Trades",
+  "description": "Read-only tracker for trades made by Hades, a Solana memecoin assistant bot.",
+  "start_url": "./",
+  "scope": "/hades-trades/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0c0a",
+  "theme_color": "#0b0c0a",
+  "lang": "en-AU",
+  "dir": "ltr",
+  "categories": ["finance"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

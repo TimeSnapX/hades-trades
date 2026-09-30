@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hades Trades · read-only trade tracker</title>
+    <meta name="description" content="Read-only tracker for trades made by Hades, a Solana memecoin assistant bot. Live balances, P&amp;L and rule adherence." />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#0b0c0a" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/app.css?v=1" />
+  </head>
+  <body>
+    <div class="glow glow-a" aria-hidden="true"></div>
+    <div class="glow glow-b" aria-hidden="true"></div>
+    <div class="shell">
+      <header class="top">
+        <div class="brand">
+          <span class="mark" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">Read-only · Solana · Hades bot</p>
+            <h1>Hades Trades</h1>
+          </div>
+        </div>
+      </header>
+      <section class="panel hdr" id="hdr" aria-label="Wallet summary"><p class="muted">Loading…</p></section>
+      <div id="alerts" aria-live="polite"></div>
+      <nav class="tabs" id="scope" aria-label="Scope"></nav>
+      <section class="panel" id="positions" aria-label="Open positions"></section>
+      <section class="panel" id="rules" aria-label="Real-run limits"></section>
+      <section class="panel" id="aggs" aria-label="Performance"></section>
+      <section class="charts" id="charts" aria-label="Charts"></section>
+      <section class="panel" id="adherence" aria-label="Rule adherence"></section>
+      <section class="panel" id="breakdowns" aria-label="Breakdowns"></section>
+      <section class="panel" id="closed" aria-label="Per-position stats"></section>
+      <section class="panel" id="history" aria-label="Trade history"></section>
+    </div>
+    <footer>
+      <p>Strictly read-only: no wallet connection, no keys, no signing. Data: the Hades trade log (<a href="data/trades.json">trades.json</a>, <a href="https://github.com/TimeSnapX/hades-trades/blob/main/docs/SCHEMA.md" target="_blank" rel="noopener">schema</a>), public Solana RPC, Jupiter holdings, DexScreener, GeckoTerminal, CoinGecko/Coinbase. Not financial advice.</p>
+    </footer>
+    <script type="module" src="js/app.js?v=1"></script>
+  </body>
+</html>
