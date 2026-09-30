@@ -44,8 +44,12 @@ CopyFromBox `box_path=/workspace/hades-trades-publish.tar` to
 ## 4. Push from Kenny (Shell with machineId, one call)
 
 ```powershell
-cd C:\Users\kenny; if (Test-Path C:\Users\kenny\hades-trades-publish) { Remove-Item -Recurse -Force C:\Users\kenny\hades-trades-publish }; New-Item -ItemType Directory C:\Users\kenny\hades-trades-publish | Out-Null; tar -xf C:\Users\kenny\hades-trades-publish.tar -C C:\Users\kenny\hades-trades-publish; cd C:\Users\kenny\hades-trades-publish\hades-trades; git config core.autocrlf false; git config core.filemode false; git log -1 --format="%H %s"; git push origin main; "push exit: $LASTEXITCODE"
+cd C:\Users\kenny; if (Test-Path C:\Users\kenny\hades-trades-publish) { Remove-Item -Recurse -Force C:\Users\kenny\hades-trades-publish }; New-Item -ItemType Directory C:\Users\kenny\hades-trades-publish | Out-Null; tar -xf C:\Users\kenny\hades-trades-publish.tar -C C:\Users\kenny\hades-trades-publish; cd C:\Users\kenny\hades-trades-publish\hades-trades; git config core.autocrlf false; git config core.filemode false; git log -1 --format="%H %s"; git push origin main; "push exit: $LASTEXITCODE"; cd C:\Users\kenny
 ```
+- The final `cd C:\Users\kenny` matters. The Shell tool keeps the last working
+  directory, and Windows locks that directory, which makes clean-up fail with
+  "being used by another process". If that happens, run the clean-up again in a new
+  Shell call.
 - Check that the printed hash matches step 2 and that you see `push exit: 0`.
 - If the push is rejected (non-fast-forward), **stop and report it**. Never
   force-push. Someone changed GitHub directly, so the box repo has to fetch and
