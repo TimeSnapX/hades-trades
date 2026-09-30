@@ -21,6 +21,11 @@ Unknown values are `null`, never guessed.
 | `updated_aest` | ISO +10:00 | Last write by add-trade.mjs. |
 | `trades` | array | Rows below, sorted by `time_aest` ascending (ties by `tx`). |
 
+Other top-level keys, such as `last_manager_check` from Hades' position manager,
+are allowed. add-trade.mjs keeps them unchanged, and the app ignores them. If
+another tool writes the file, it must write atomically: write a temp file, then
+rename it over the original.
+
 ## Trade row
 
 | Field | Type | Meaning |
