@@ -48,8 +48,10 @@ Row options (with --from-tx):
                          filters_passed:[..], filters_failed:[..]} (unknown numbers: null)
   --targets real|'{...}' BUY: planned targets (real = 1/3 @1.5x, 1/3 @2x, trail 25%, stop -35%)
   --price-expected N     quoted SOL per token (enables slippage)
-  --trader agent|human   who made the trade (default: agent for BUY/SELL, human for
-                         DEPOSIT/WITHDRAW). Hades: leave it out (or --trader agent).
+  --trader agent|human   whose decision the trade was (default: agent for BUY/SELL, human
+                         for DEPOSIT/WITHDRAW). Hades: always pass it. human = user picked
+                         the token or ordered the buy/sell (incl. rule exits of his picks);
+                         agent = Hades chose it itself. See LOGGING-RULES.md.
   --json '{...}'         extra overrides (must agree with chain values)
   --sol-usd N            SOL/USD to value stablecoin sell proceeds when Kraken is unavailable
 Phantom sponsored sells (token out, stablecoin proceeds paid to another account,

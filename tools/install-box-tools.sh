@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install the Hades tools on the shared box from this repo:
-#   /home/box/hades/add-trade.mjs, lib/{schema.js,parse-tx.js}, package-for-kenny.sh, PUBLISH.md
+#   /home/box/hades/add-trade.mjs, lib/{schema.js,parse-tx.js}, package-for-kenny.sh, PUBLISH.md, SCHEMA.md, LOGGING-RULES.md
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 DEST=/home/box/hades
@@ -11,5 +11,6 @@ printf '{"type":"module"}\n' > "$DEST/lib/package.json"
 cp "$REPO/tools/package-for-kenny.sh" "$DEST/package-for-kenny.sh"
 cp "$REPO/docs/PUBLISH.md" "$DEST/PUBLISH.md"
 cp "$REPO/docs/SCHEMA.md" "$DEST/SCHEMA.md"
+cp "$REPO/docs/LOGGING-RULES.md" "$DEST/LOGGING-RULES.md"
 chmod +x "$DEST/add-trade.mjs" "$DEST/package-for-kenny.sh"
 echo "installed to $DEST"
