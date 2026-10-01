@@ -8,13 +8,13 @@
  *   offline fallback. data/trades.json is always fetched fresh when online.
  * Bump VERSION to drop old caches.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `hades-trades-${VERSION}`;
 const SCOPE = new URL(self.registration.scope);
 const SHELL = [
   "./", "index.html", "manifest.webmanifest", "favicon.svg",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",
-  "css/app.css?v=1", "js/app.js?v=1", "js/stats.js", "js/schema.js", "js/parse-tx.js", "js/sources.js", "js/charts.js",
+  "css/app.css?v=1", "js/app.js?v=2", "js/stats.js", "js/schema.js", "js/parse-tx.js", "js/sources.js", "js/charts.js",
   "data/trades.json",
 ];
 

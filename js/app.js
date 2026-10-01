@@ -496,11 +496,18 @@ function bind() {
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && (!state.live.lastLive || Date.now() - state.live.lastLive > 30000)) refreshLive(); });
 }
 
+// Register the service worker first, independent of data loading: if it waits for
+// loadTrades()/refreshLive(), a slow or failing API on the phone means Chrome never
+// sees a service worker and "Install app" is not offered.
+function registerSW() {
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "127.0.0.1" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
 async function main() {
+  registerSW();
   bind();
   await loadTrades();
   renderAll();
   await refreshLive();
-  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "127.0.0.1" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 main();
