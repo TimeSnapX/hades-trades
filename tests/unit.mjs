@@ -2,8 +2,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import * as S from "../js/stats.js";
-import { parseTx } from "../js/parse-tx.js";
-import { validateDoc, validateTrade } from "../js/schema.js";
+import { parseTx, findSponsoredSells, sponsoredSellFields, isOnCurve } from "../js/parse-tx.js";
+import { validateDoc, validateTrade, loggedTxSet } from "../js/schema.js";
 
 const read = (f) => JSON.parse(fs.readFileSync(new URL(`./fixtures/${f}`, import.meta.url)));
 const near = (a, b, eps = 1e-9, msg = "") => assert.ok(Math.abs(a - b) <= eps, `${msg} expected ${b}, got ${a}`);
@@ -128,5 +128,122 @@ test("schema validation", () => {
   assert.ok(validateTrade(noSnap).some((e) => /liquidity_usd is required/.test(e)));
   assert.ok(validateTrade({ ...A.trades[2], exit_reason: "yolo" }).some((e) => /exit_reason/.test(e)));
   assert.ok(validateTrade({ ...A.trades[0], time_aest: "2026-09-28T10:00:00Z" }).some((e) => /time_aest/.test(e)));
+});
+
+// ---------------- Me vs Agent ----------------
+const raw = (f) => { const j = read(f); return j.result || j; };
+test("classification: trader defaults, file field, local overrides, sources", () => {
+  const buy = { action: "BUY", tx: "t1" }, dep = { action: "DEPOSIT", tx: "t2" };
+  assert.equal(S.traderOf(buy), "agent"); assert.equal(S.traderSourceOf(buy), "logged");      // legacy row: logged by Hades
+  assert.equal(S.traderOf(dep), "human"); assert.equal(S.traderSourceOf(dep), "inferred");   // deposits are the user's
+  assert.equal(S.traderOf({ ...buy, trader: "human", trader_source: "inferred" }), "human");
+  assert.equal(S.traderSourceOf({ ...buy, trader: "human", trader_source: "inferred" }), "inferred");
+  assert.equal(S.traderOf(buy, { t1: "human" }), "human"); assert.equal(S.traderSourceOf(buy, { t1: "human" }), "manual_override");
+  assert.equal(S.traderSourceOf({ ...buy, trader: "human", trader_source: "inferred" }, { t1: "human" }), "inferred", "override equal to file is not an override");
+  assert.equal(S.traderOf(buy, { t1: "bogus" }), "agent");
+  const ann = S.annotate(A.trades, {});
+  assert.equal(ann.filter((t) => t._trader === "agent").length, 8); assert.equal(ann.filter((t) => t._trader === "human").length, 2);
+  assert.ok(!("_trader" in A.trades[0]), "annotate copies rows");
+  assert.deepEqual(validateTrade({ ...read("mock-c.json").trades[1], trader: "robot" }).filter((e) => /trader/.test(e)).length, 1);
+  assert.ok(validateTrade((({ trader, ...r }) => r)(read("mock-c.json").trades[1])).some((e) => /needs trader/.test(e)));
+  assert.deepEqual(validateTrade({ ...read("mock-c.json").trades[1], trader: "human", trader_source: "manual_override" }), []);
+});
+test("FIFO within a group (not average cost)", () => {
+  const r = (id, action, sol, tokens, h, trader) => ({ id, action, token: "QQQ", mint: mint("QQQ"), sol, tokens, rent_sol: 0, fee_sol: 0, tx: id, run: "real", time_aest: `2026-10-07T${h}:00:00+10:00`, trader });
+  const { positions: ps, rowInfo: ri } = S.buildPositions([r("b1", "BUY", 0.1, 100, "09", "agent"), r("b2", "BUY", 0.3, 100, "10", "agent"), r("s1", "SELL", 0.2, 100, "11", "agent")]);
+  assert.equal(ps.length, 1);
+  near(ri.get("s1").realized, 0.1); near(ri.get("s1").cost_out, 0.1); // FIFO: the 0.1 lot goes first (average cost would give 0)
+  near(ps[0].remaining_cost, 0.3); near(ps[0].qty, 100); assert.equal(ps[0].crossed, false);
+  // a different group's buy of the same token is a separate position
+  const { positions: p2 } = S.buildPositions([r("b1", "BUY", 0.1, 100, "09", "agent"), r("b2", "BUY", 0.3, 100, "10", "human")]);
+  assert.deepEqual(p2.map((p) => [p.trader, p.qty]), [["agent", 100], ["human", 100]]);
+});
+const C = read("mock-c.json");
+const NOWC = Date.parse("2026-10-07T13:00:00+10:00");
+const marksC = { [mint("ZZZ")]: { price_sol: 0.0015 }, [mint("WWW")]: { price_sol: 0.0005 } };
+const annC = S.annotate(C.trades, {});
+const bc = S.buildPositions(annC);
+S.markPositions(bc.positions, marksC, NOWC);
+const PC = (tok, g) => bc.positions.find((p) => p.token === tok && p.trader === g);
+test("crossed sells: human sells more than he holds -> rest from the agent's bag, flagged", () => {
+  assert.equal(bc.positions.length, 5);
+  const hx = PC("XXX", "human"), ax = PC("XXX", "agent");
+  near(hx.realized, 0.1); near(hx.cost_in, 0.2); near(hx.proceeds, 0.3); assert.equal(hx.closed, true); assert.equal(hx.crossed, false);
+  near(ax.realized, 0.07); near(ax.proceeds, 0.17); assert.equal(ax.closed, true); assert.equal(ax.crossed, true);
+  assert.equal(ax.crossed_sells.length, 1); assert.equal(ax.crossed_sells[0].seller, "human"); near(ax.crossed_sells[0].qty, 500); near(ax.crossed_sells[0].realized, 0.1);
+  const i = bc.rowInfo.get("hxs");
+  assert.equal(i.crossed, true); assert.equal(i.legs.length, 2); near(i.realized, 0.2); near(i.cost_out, 0.25);
+  assert.deepEqual(i.legs.map((l) => [l.position.trader, l.qty, l.crossed]), [["human", 1000, false], ["agent", 500, true]]);
+  near(bc.rowInfo.get("axs").realized, -0.03); assert.equal(bc.rowInfo.get("axs").crossed, false);
+  near(PC("YYY", "human").realized, -0.05);
+  near(PC("ZZZ", "agent").unrealized, 0.05); near(PC("WWW", "human").unrealized, -0.05);
+  // with no inventory at all a sell is an orphan (no position)
+  const o = S.buildPositions([{ ...C.trades[3], id: "x" }]);
+  assert.equal(o.rowInfo.get("x").orphan, true);
+});
+const lpC = { [mint("ZZZ")]: 0.0015, [mint("WWW")]: 0.0005 };
+const cur = { human: S.pnlCurve(annC, "human", {}, lpC, NOWC), agent: S.pnlCurve(annC, "agent", {}, lpC, NOWC) };
+test("group P&L curves + drawdown (hand-checked); Me + Agent = wallet", () => {
+  near(cur.human.points.at(-1).pnl, 0); near(cur.agent.points.at(-1).pnl, 0.12);
+  near(cur.human.max_dd, -0.1); near(cur.agent.max_dd, -0.03);
+  near(cur.human.points.at(-1).fees, 0.005); near(cur.agent.points.at(-1).fees, 0.003);
+  const wallet = S.equityCurve(annC, bc.positions, {}, lpC, NOWC);
+  near(wallet.points.at(-1).pnl, cur.human.points.at(-1).pnl + cur.agent.points.at(-1).pnl);
+  near(wallet.points.at(-1).deposits, 1);
+});
+test("Me vs Agent comparison maths (hand-checked)", () => {
+  const c = S.compareGroups(bc.positions, annC, cur);
+  const h = c.human, a = c.agent;
+  assert.equal(h.trades, 5); assert.equal(h.buys, 3); assert.equal(h.sells, 2);
+  assert.equal(h.n_closed, 2); assert.equal(h.wins, 1); near(h.win_rate, 50); near(h.profit_factor, 2); near(h.expectancy_sol, 0.025); near(h.expectancy_pct, 0);
+  near(h.realized_sol, 0.05); near(h.unrealized_sol, -0.05); near(h.total_sol, 0); near(h.avg_hold_ms, 30 * 60e3); near(h.max_dd, -0.1); near(h.fees_sol, 0.005);
+  assert.equal(h.crossed, 0); assert.equal(h.inferred, 6); assert.equal(h.too_few, true);
+  assert.equal(a.trades, 3); assert.equal(a.n_closed, 1); near(a.win_rate, 100); assert.equal(a.profit_factor, Infinity); near(a.expectancy_sol, 0.07); near(a.expectancy_pct, 70);
+  near(a.realized_sol, 0.07); near(a.unrealized_sol, 0.05); near(a.avg_hold_ms, 90 * 60e3); near(a.max_dd, -0.03); near(a.fees_sol, 0.003);
+  assert.equal(a.crossed, 1); near(a.crossed_sol, 0.1);
+  // a local override moves a row between groups: Me's YYY sell marked Agent -> crossed against Me's YYY bag
+  const ov = S.annotate(C.trades, { [C.trades[6].tx]: "agent" });
+  const b2 = S.buildPositions(ov); S.markPositions(b2.positions, marksC, NOWC);
+  const yy = b2.positions.find((p) => p.token === "YYY");
+  assert.equal(yy.trader, "human"); assert.equal(yy.crossed, true); near(yy.realized, -0.05);
+  const c2 = S.compareGroups(b2.positions, ov, null);
+  assert.equal(c2.agent.trades, 4); assert.equal(c2.human.trades, 4); assert.equal(c2.human.crossed, 1);
+});
+test("breakdown by trader", () => {
+  const rows = Object.fromEntries(S.breakdown(bc.positions, "trader").map((r) => [r.key, r]));
+  assert.equal(rows.Me.n, 3); assert.equal(rows.Agent.n, 2); near(rows.Me.total, 0); near(rows.Agent.total, 0.12);
+});
+const W1 = "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f";
+test("Phantom sponsored sell (real txs): loan in + token out (CASH to another wallet) + loan back = one SELL", () => {
+  const d = ["tx-fundnet-loan-in.json", "tx-fundnet-sell.json", "tx-fundnet-loan-out.json", "tx-fundnet-buy.json"].map((f) => parseTx(raw(f), W1));
+  assert.deepEqual(d.map((x) => x.kind), ["DEPOSIT", "TOKEN_OUT", "WITHDRAW", "BUY"]);
+  assert.deepEqual(d[1].external_proceeds, { asset: "CASH", mint: "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH", amount: 4.956525, to: "AtSzKm8o1Gj3hyHUyEjXFhcZS69Bp3W5Uf7yKjSH1dav" });
+  const [b] = findSponsoredSells(d, { wallet: W1 });
+  assert.equal(b.loanIn.tx, d[0].tx); assert.equal(b.loanOut.tx, d[2].tx);
+  const f = sponsoredSellFields(b, 120);
+  assert.equal(f.wallet_sol_delta, 0); // 0.05 lent - 0.001561523 - 0.048438477 repaid
+  assert.equal(f.rent_sol, -0.00151384); assert.equal(f.proceeds_external.sol_equiv, 0.041304375); assert.equal(f.sol, 0.041304375);
+  assert.equal(f.tokens, d[3].tokens); assert.equal(f.fee_sol, 0.000047683);
+  // round trip P&L: cost 0.044122265 - 0.00151384 rent; proceeds 0.041304375 - 0.00151384
+  const rows = [{ id: "b", action: "BUY", mint: d[3].mint, token: "F", sol: d[3].sol, tokens: d[3].tokens, rent_sol: d[3].rent_sol, tx: "b", time_aest: d[3].time_aest, run: "test", trader: "human" },
+    { id: "s", action: "SELL", mint: f.mint, token: "F", sol: f.sol, tokens: f.tokens, rent_sol: f.rent_sol, tx: "s", time_aest: f.time_aest, run: "test", trader: "human", wallet_sol_delta: f.wallet_sol_delta, proceeds_external: f.proceeds_external }];
+  near(S.buildPositions(rows).rowInfo.get("s").realized, 0.041304375 - 0.044122265);
+  assert.equal(S.solDelta(rows[1]), 0); near(S.depositDelta(rows[1]), -0.041304375);
+  assert.equal(isOnCurve(W1), true); assert.equal(isOnCurve("6EcioYG5g5svhRS3dL28JKp7VytCf86WPe9dNWVY95oJ"), false);
+});
+test("Relay bridge deposit (SOL out through a program) parses as WITHDRAW", () => {
+  const w = parseTx(raw("tx-relay-withdraw.json"), W1);
+  assert.equal(w.action, "WITHDRAW"); assert.equal(w.sol, 0.042560531);
+});
+test("schema: linked_txs / proceeds_external rules, linked txs count as logged", () => {
+  const sell = { ...C.trades[3], sol: 0.05, linked_txs: [C.trades[0].tx.replace(/1$/, "2")], wallet_sol_delta: 0.01, proceeds_external: { asset: "CASH", mint: "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH", amount: 4.8, to: W1, usd_equiv: 4.8, sol_equiv: 0.04 } };
+  assert.deepEqual(validateTrade(sell), []);
+  assert.ok(validateTrade({ ...sell, sol: 0.06 }).some((e) => /sol must equal/.test(e)));
+  assert.ok(validateTrade({ ...sell, wallet_sol_delta: undefined }).some((e) => /wallet_sol_delta/.test(e)));
+  assert.ok(validateTrade({ ...C.trades[2], proceeds_external: sell.proceeds_external, wallet_sol_delta: 0 }).some((e) => /only allowed on SELL/.test(e)));
+  const dup = { ...C, trades: C.trades.map((t, i) => (i === 3 ? { ...t, linked_txs: [C.trades[1].tx] } : t)) };
+  assert.ok(validateDoc(dup).some((e) => /duplicate tx/.test(e)));
+  assert.ok(loggedTxSet([sell]).has(sell.linked_txs[0]));
+  assert.deepEqual(validateDoc(C), []);
 });
 console.log(`\n${n} unit test groups passed`);

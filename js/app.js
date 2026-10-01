@@ -1,9 +1,9 @@
 // Hades Trades: read-only dashboard. No wallet connection, no keys, no signing.
-import * as S from "./stats.js";
-import { validateDoc } from "./schema.js";
-import { parseTx } from "./parse-tx.js";
-import * as src from "./sources.js";
-import { lineChart, barChart, hBars, calendar, progress, COLORS } from "./charts.js";
+import * as S from "./stats.js?v=3";
+import { validateDoc, loggedTxSet } from "./schema.js?v=3";
+import { parseTx, findSponsoredSells, sponsoredSellFields } from "./parse-tx.js?v=3";
+import * as src from "./sources.js?v=3";
+import { lineChart, barChart, hBars, calendar, progress, COLORS } from "./charts.js?v=3";
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -39,6 +39,14 @@ export const fmt = {
   price(v) { return v == null || !Number.isFinite(v) ? "n/a" : v.toExponential(4); },
 };
 const cls = (v) => (v == null ? "" : v > 0 ? "pos" : v < 0 ? "neg" : "");
+const OV_KEY = "ht-trader-overrides";
+function loadOverrides() { try { const o = JSON.parse(localStorage.getItem(OV_KEY) || "{}"); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; } catch { return {}; } }
+const WHO = { human: "🧑 Me", agent: "🤖 Agent" };
+function badge(trader, tsrc, live) {
+  const inferred = tsrc === "inferred" || tsrc === "manual_override";
+  const title = live ? "live on-chain activity, not logged yet: assumed Me" : tsrc === "inferred" ? "inferred: not logged by Hades" : tsrc === "manual_override" ? "manually re-assigned" : "logged";
+  return `<span class="who ${trader}${inferred ? " inferred" : ""}${live ? " live" : ""}" data-who="${trader}" data-tsrc="${esc(tsrc || "")}" title="${esc(title)}">${WHO[trader] || esc(trader)}${tsrc === "inferred" ? '<i aria-label="inferred">?</i>' : tsrc === "manual_override" ? '<i aria-label="overridden">*</i>' : ""}</span>`;
+}
 const nTag = (n, extra = "") => `<span class="n" data-n="${n}">n = ${n}${extra}</span>`;
 const few = (n, what = "closed trades") => (n < S.MIN_SAMPLE ? `<p class="few" data-few>Too few trades for reliable statistics (n = ${n} ${what}; ${S.MIN_SAMPLE}+ recommended). Treat these numbers as anecdotes.</p>` : "");
 
@@ -46,6 +54,9 @@ const few = (n, what = "closed trades") => (n < S.MIN_SAMPLE ? `<p class="few" d
 const state = {
   doc: null, trades: [], loadError: null, warnings: [],
   scope: localStorage.getItem("ht:scope") || "all",
+  trader: ["all", "human", "agent"].includes(localStorage.getItem("ht:trader")) ? localStorage.getItem("ht:trader") : "all",
+  overrides: loadOverrides(),
+  openTrade: null,
   cur: localStorage.getItem("ht:cur") || "SOL",
   preview: false,
   live: { wallet: null, walletError: null, prices: {}, pricesError: null, fx: null, fxError: null, candles: {}, candleErrors: {}, unlogged: [], lastLive: null, loading: false },
@@ -68,7 +79,7 @@ async function loadTrades() {
 }
 
 // ---------- model ----------
-function marksFrom() {
+function marksFrom(rows) {
   const L = state.live, marks = {};
   const solUsd = L.fx && L.fx.sol_usd;
   for (const [mint, p] of Object.entries(L.prices)) {
@@ -78,37 +89,71 @@ function marksFrom() {
   if (L.wallet) {
     const q = {};
     for (const a of L.wallet.accounts) q[a.mint] = (q[a.mint] || 0) + a.amount;
-    for (const mint of new Set([...Object.keys(q), ...state.trades.filter((t) => t.mint).map((t) => t.mint)])) {
+    for (const mint of new Set([...Object.keys(q), ...rows.filter((t) => t.mint).map((t) => t.mint)])) {
       marks[mint] = { ...(marks[mint] || { price_sol: null }), chain_qty: q[mint] || 0 };
     }
   }
   return marks;
 }
 
+// Unlogged on-chain activity as provisional rows: trader "human" (inferred), so
+// a manual trade shows up under Me straight away. Phantom sponsored sells
+// (loan in + token out + loan back) become one SELL valued at today's SOL/USD.
+function liveRows() {
+  const L = state.live;
+  if (!L.unlogged.length) return [];
+  const wallet = state.doc.wallet;
+  const drafts = L.unlogged.filter((u) => u.parsed && u.parsed.ok !== false).map((u) => ({ ...u.parsed, tx: u.sig }));
+  const start = S.ms(state.doc.real_run_start_aest || "2026-10-06T21:12:00+10:00");
+  const sym = (mint) => (L.prices[mint] && L.prices[mint].symbol) || mint.slice(0, 6) + "…";
+  const mk = (d, extra = {}) => ({
+    id: `live-${d.action.toLowerCase()}-${d.tx.slice(0, 8)}`, time_aest: d.time_aest, action: d.action,
+    token: d.mint ? sym(d.mint) : "SOL", mint: d.mint || null, sol: d.sol, tokens: d.mint ? d.tokens : null,
+    usd_at_time: null, fee_sol: d.fee_sol == null ? null : d.fee_sol, fee_breakdown: d.fee_breakdown || null, rent_sol: d.rent_sol || 0,
+    price_expected: null, price_filled: d.price_filled == null ? null : d.price_filled, tx: d.tx, reason: null,
+    run: S.ms(d.time_aest) >= start ? "real" : "test",
+    entry_snapshot: d.action === "BUY" ? { liquidity_usd: null, volume24h_usd: null, age_hours: null, top10_pct: null, rugcheck_score: null, filters_passed: [], filters_failed: [] } : null,
+    exit_reason: null, planned_targets: null, trader: "human", trader_source: "inferred", unverified: ["not logged yet"], _live: true, ...extra,
+  });
+  const out = [], used = new Set();
+  for (const b of findSponsoredSells(drafts, { wallet })) {
+    for (const d of [b.main, b.loanIn, b.loanOut]) if (d) used.add(d.tx);
+    const solUsd = L.fx && L.fx.sol_usd;
+    if (!solUsd || !b.main.time_aest) continue;
+    const f = sponsoredSellFields(b, solUsd);
+    if (f.sol > 0) out.push(mk({ ...b.main, action: "SELL", sol: f.sol, rent_sol: f.rent_sol, fee_sol: f.fee_sol, fee_breakdown: f.fee_breakdown, price_filled: f.price_filled }, { linked_txs: f.linked_txs, wallet_sol_delta: f.wallet_sol_delta, proceeds_external: f.proceeds_external }));
+  }
+  for (const d of drafts) if (!used.has(d.tx) && d.action && d.time_aest) out.push(mk(d));
+  return out;
+}
+
 function model() {
   const now = Date.now();
-  const all = state.trades;
-  const marks = marksFrom();
+  const all = S.annotate([...state.trades, ...liveRows()].sort((a, b) => S.ms(a.time_aest) - S.ms(b.time_aest)), state.overrides);
+  const marks = marksFrom(all);
   const { positions, rowInfo } = S.buildPositions(all);
   S.markPositions(positions, marks, now);
   const candles = state.live.candles;
   for (const p of positions) p.ex = S.excursion(candles[p.mint], p.open_time, p.closed ? p.close_time : now, p.entry_price);
-  const scope = state.scope;
-  const sTrades = all.filter((t) => S.inScope(t, scope));
-  const sPos = positions.filter((p) => S.inScope(p, scope));
+  const scope = state.scope, g = state.trader;
+  const runTrades = all.filter((t) => S.inScope(t, scope));
+  const runPos = positions.filter((p) => S.inScope(p, scope));
+  const sTrades = runTrades.filter((t) => S.inGroup(t, g));
+  const sPos = runPos.filter((p) => g === "all" || p.trader === g);
   const livePrices = Object.fromEntries(Object.entries(marks).map(([m, v]) => [m, v.price_sol]));
-  const eq = S.equityCurve(sTrades, sPos, candles, livePrices, now);
+  const curves = { human: S.pnlCurve(runTrades, "human", candles, livePrices, now), agent: S.pnlCurve(runTrades, "agent", candles, livePrices, now) };
+  const eq = g === "all" ? S.equityCurve(runTrades, runPos, candles, livePrices, now) : curves[g];
   const lastPnl = eq.points.length ? eq.points[eq.points.length - 1].pnl : null;
   const agg = S.aggregates(sPos, sTrades, { netPnl: lastPnl });
-  return { now, all, marks, positions, rowInfo, sTrades, sPos, eq, agg, livePrices };
+  const cmp = S.compareGroups(runPos, runTrades, curves);
+  return { now, all, marks, positions, rowInfo, runTrades, runPos, sTrades, sPos, eq, curves, agg, cmp, livePrices, group: g };
 }
 
 function header(m) {
   const L = state.live, all = m.all;
-  const dep = all.filter((t) => t.action === "DEPOSIT"), wd = all.filter((t) => t.action === "WITHDRAW");
-  const deposited = dep.reduce((s, t) => s + t.sol, 0) - wd.reduce((s, t) => s + t.sol, 0);
-  const depUsdKnown = [...dep, ...wd].every((t) => t.usd_at_time != null);
-  const depositedUsd = depUsdKnown ? dep.reduce((s, t) => s + t.usd_at_time, 0) - wd.reduce((s, t) => s + t.usd_at_time, 0) : null;
+  const deposited = all.reduce((s, t) => s + S.depositDelta(t), 0);
+  const depUsd = all.map(S.depositDeltaUsd);
+  const depositedUsd = depUsd.every((v) => v != null) ? depUsd.reduce((s, v) => s + v, 0) : null;
   let sol, rent, tokenValue = 0, unpriced = [], estimated = false;
   if (L.wallet) {
     sol = L.wallet.sol;
@@ -133,9 +178,32 @@ function header(m) {
   return { sol, rent, tokenValue, total, deposited, depositedUsd, pnl, pnlPct: deposited ? (pnl / deposited) * 100 : null, usd, aud: usd != null && fx.usd_aud ? usd * fx.usd_aud : null, pnlUsd, pnlUsdPct: pnlUsd != null && depositedUsd ? (pnlUsd / depositedUsd) * 100 : null, pnlAud: pnlUsd != null && fx.usd_aud ? pnlUsd * fx.usd_aud : null, depositedAud: depositedUsd != null && fx && fx.usd_aud ? depositedUsd * fx.usd_aud : null, unpriced, estimated };
 }
 
+// Me / Agent header: the wallet is shared, so P&L comes from the group's positions.
+function groupHeader(m, g) {
+  const pos = m.positions.filter((p) => p.trader === g);
+  const realized = pos.reduce((s, p) => s + p.realized, 0);
+  const open = pos.filter((p) => !p.closed);
+  const unknown = open.filter((p) => p.unrealized == null).length;
+  const unrealized = open.reduce((s, p) => s + (p.unrealized || 0), 0);
+  const value = open.reduce((s, p) => s + (p.value || 0), 0);
+  const cost = pos.reduce((s, p) => s + p.cost_in, 0);
+  const fees = m.all.filter((t) => t._trader === g && (t.action === "BUY" || t.action === "SELL")).reduce((s, t) => s + (t.fee_sol || 0), 0);
+  const r9 = (v) => Math.round(v * 1e9) / 1e9 || 0;
+  return { realized: r9(realized), unrealized: r9(unrealized), total: r9(realized + unrealized), value, cost, fees, unknown, n: pos.length, open: open.length };
+}
+const toFiat = (v, cur) => { const fx = state.live.fx; if (v == null || !fx) return null; return cur === "AUD" ? (fx.usd_aud ? v * fx.sol_usd * fx.usd_aud : null) : v * fx.sol_usd; };
+const money = (v, cur, sign) => (cur === "SOL" ? `${fmt.sol(v, sign)} SOL` : fmt.money(toFiat(v, cur), cur, sign));
+
+function renderTraderSeg(m) {
+  const n = (g) => m.all.filter((t) => (t.action === "BUY" || t.action === "SELL") && (g === "all" || t._trader === g)).length;
+  $("#trader-seg").innerHTML = ["all", "human", "agent"].map((g) => `<button type="button" role="tab" class="seg-btn" data-trader="${g}" aria-selected="${state.trader === g}">${g === "all" ? "All" : g === "human" ? "🧑 Me" : "🤖 Agent"} <small>${n(g)}</small></button>`).join("");
+}
+
 // ---------- render ----------
 function renderHeader(m) {
   const h = header(m), L = state.live, cur = state.cur;
+  const g = state.trader;
+  const gh = g === "all" ? null : groupHeader(m, g);
   const big = cur === "SOL" ? `${fmt.sol(h.total)} <small>SOL</small>` : cur === "USD" ? fmt.money(h.usd, "USD") : fmt.money(h.aud, "AUD");
   const pnlMain = cur === "SOL" ? `${fmt.sol(h.pnl, true)} SOL` : cur === "USD" ? fmt.money(h.pnlUsd, "USD", true) : fmt.money(h.pnlAud, "AUD", true);
   const pnlPct = cur === "SOL" ? h.pnlPct : h.pnlUsdPct;
@@ -150,17 +218,22 @@ function renderHeader(m) {
   $("#hdr").innerHTML = `
     <div class="hero">
       <div>
-        <p class="label">Wallet value ${h.unpriced.length && !h.estimated ? `<b class="warn" data-k="unpriced">excludes ${h.unpriced.length} unpriced token${h.unpriced.length > 1 ? "s" : ""}</b> ` : ""}${h.estimated ? '<b class="warn" data-k="estimated">estimated from the log (live balance unavailable)</b>' : ""}</p>
+        <p class="label">${g === "all" ? "" : "Shared "}Wallet value ${h.unpriced.length && !h.estimated ? `<b class="warn" data-k="unpriced">excludes ${h.unpriced.length} unpriced token${h.unpriced.length > 1 ? "s" : ""}</b> ` : ""}${h.estimated ? '<b class="warn" data-k="estimated">estimated from the log (live balance unavailable)</b>' : ""}</p>
         <p class="stat-value" data-k="total">${big}</p>
         <p class="sub"><span data-k="total-sol">${fmt.sol(h.total)} SOL</span> · <span data-k="total-usd">${fmt.money(h.usd, "USD")}</span> · <span data-k="total-aud">${fmt.money(h.aud, "AUD")}</span></p>
       </div>
       <button class="btn" type="button" id="cur-toggle" data-cur="${cur}" aria-label="Switch currency">Show in: <b>${cur}</b></button>
     </div>
-    <div class="hstats">
+    ${gh ? `<div class="hstats group" data-k="group-head" data-group="${g}">
+      <div><p class="label">${g === "human" ? "My" : "Agent"} P&amp;L ${badge(g, "logged")}</p><p class="v ${cls(gh.total)}" data-k="pnl">${money(gh.total, cur, true)}</p><small>SOL <span data-k="pnl-sol">${fmt.sol(gh.total, true)}</span>${gh.cost ? ` (${fmt.pct((gh.total / gh.cost) * 100)} of ${fmt.sol(gh.cost)} SOL bought)` : ""}${gh.unknown ? ` · <b class="warn">${gh.unknown} unpriced</b>` : ""}</small></div>
+      <div><p class="label">Realized / unrealized</p><p class="v small-v"><span class="${cls(gh.realized)}" data-k="g-realized">${fmt.sol(gh.realized, true)}</span> / <span class="${cls(gh.unrealized)}" data-k="g-unrealized">${fmt.sol(gh.unrealized, true)}</span> SOL</p><small>${fmt.money(toFiat(gh.realized, "AUD"), "AUD", true)} / ${fmt.money(toFiat(gh.unrealized, "AUD"), "AUD", true)} · ${gh.open} open, value ${fmt.sol(gh.value)} SOL</small></div>
+      <div><p class="label">Fees (${g === "human" ? "Me" : "Agent"})</p><p class="v small-v" data-k="g-fees">${fmt.sol(gh.fees)} SOL</p><small>Shared wallet: deposits ${fmt.sol(h.deposited)} SOL, total P&amp;L ${fmt.sol(h.pnl, true)} SOL (All)</small></div>
+    </div>` : ""}
+    ${gh ? "" : `<div class="hstats">
       <div><p class="label">Deposited</p><p class="v" data-k="deposited">${depMain}</p><small>${fmt.sol(h.deposited)} SOL · ${fmt.money(h.depositedUsd, "USD")} at deposit time</small></div>
       <div><p class="label">P&amp;L</p><p class="v ${cls(cur === "SOL" ? h.pnl : h.pnlUsd)}" data-k="pnl">${pnlMain} <span data-k="pnl-pct">${fmt.pct(pnlPct)}</span></p><small>SOL terms <span data-k="pnl-sol">${fmt.sol(h.pnl, true)}</span> (${fmt.pct(h.pnlPct)}) · USD <span data-k="pnl-usd">${fmt.money(h.pnlUsd, "USD", true)}</span></small></div>
       <div><p class="label">Breakdown</p><p class="v small-v">SOL <span data-k="sol">${fmt.sol(h.sol)}</span> · tokens <span data-k="tokens-value">${fmt.sol(h.tokenValue)}</span></p><small>+ <span data-k="rent">${fmt.sol(h.rent)}</span> SOL reclaimable rent in token accounts${h.unpriced.length ? ` · <b class="warn">${h.unpriced.length} unpriced</b>` : ""}</small></div>
-    </div>
+    </div>`}
     <div class="hfoot">
       <a class="btn" href="https://gmgn.ai/sol/address/${esc(wallet)}" target="_blank" rel="noopener" data-k="gmgn">GMGN</a>
       <a class="btn ghost" href="https://solscan.io/account/${esc(wallet)}" target="_blank" rel="noopener">Solscan</a>
@@ -180,12 +253,13 @@ function renderAlerts(m) {
   // unlogged activity
   const ul = L.unlogged;
   if (ul.length) {
-    out.push(`<div class="alert amber" data-alert="unlogged"><b>On-chain activity not yet logged (${ul.length})</b><p class="muted">Seen on chain but missing from trades.json. Hades should log it with <code>add-trade.mjs --from-tx &lt;sig&gt;</code>.</p><ul class="ul-list">${ul.map((u) => `<li data-unlogged="${esc(u.sig)}"><a href="${SOLSCAN(u.sig)}" target="_blank" rel="noopener">${esc(u.sig.slice(0, 10))}…</a> ${u.t ? fmt.time(u.t * 1000) : ""} · ${u.parsed ? `<b>${esc(u.parsed.action || u.parsed.kind)}</b> ${esc(u.symbol || (u.parsed.mint ? u.parsed.mint.slice(0, 6) + "…" : ""))} ${u.parsed.sol_delta != null ? fmt.sol(u.parsed.sol_delta, true) + " SOL" : ""}${u.parsed.tokens ? " · " + fmt.num(u.parsed.tokens) + " tokens" : ""}` : u.parseError ? `<span class="muted">details unavailable (${esc(u.parseError)})</span>` : '<span class="muted">loading details…</span>'}</li>`).join("")}</ul></div>`);
+    out.push(`<div class="alert amber" data-alert="unlogged"><b>On-chain activity not yet logged (${ul.length})</b><p class="muted">Seen on chain but missing from trades.json. Counted as ${badge("human", "inferred", true)} (manual trades) until logged with <code>add-trade.mjs --sync-unlogged</code> (or Hades: <code>--from-tx &lt;sig&gt;</code>).</p><ul class="ul-list">${ul.map((u) => `<li data-unlogged="${esc(u.sig)}"><a href="${SOLSCAN(u.sig)}" target="_blank" rel="noopener">${esc(u.sig.slice(0, 10))}…</a> ${u.t ? fmt.time(u.t * 1000) : ""} · ${badge("human", "inferred", true)} ${u.parsed ? `<b>${esc(u.parsed.action || u.parsed.kind)}</b> ${esc(u.symbol || (u.parsed.mint ? u.parsed.mint.slice(0, 6) + "…" : ""))} ${u.parsed.sol_delta != null ? fmt.sol(u.parsed.sol_delta, true) + " SOL" : ""}${u.parsed.tokens ? " · " + fmt.num(u.parsed.tokens) + " tokens" : ""}` : u.parseError ? `<span class="muted">details unavailable (${esc(u.parseError)})</span>` : '<span class="muted">loading details…</span>'}</li>`).join("")}</ul></div>`);
   }
   if (L.wallet && L.wallet.sigs == null) out.push(`<div class="alert amber" data-alert="sigs">Could not check recent signatures (${esc(L.wallet.sig_error)}); unlogged activity detection is off.</div>`);
   // holdings not in the log / mismatches
   if (L.wallet) {
     const logged = new Set(m.all.filter((t) => t.mint).map((t) => t.mint));
+    for (const t of m.all) if (t.proceeds_external) logged.add(t.proceeds_external.mint);
     const extra = L.wallet.accounts.filter((a) => a.amount > 0 && !logged.has(a.mint));
     if (extra.length) out.push(`<div class="alert amber" data-alert="holdings">Holdings not in the log: ${extra.map((a) => `<code>${esc((L.prices[a.mint] && L.prices[a.mint].symbol) || a.mint.slice(0, 6) + "…")}</code> ${fmt.num(a.amount)}`).join(", ")}</div>`);
     const mm = m.positions.filter((p) => !p.closed && p.qty_mismatch);
@@ -195,10 +269,15 @@ function renderAlerts(m) {
 }
 
 function renderScope(m) {
-  const count = (r) => m.all.filter((t) => (t.action === "BUY" || t.action === "SELL") && (r === "all" || t.run === r)).length;
+  const count = (r) => m.all.filter((t) => (t.action === "BUY" || t.action === "SELL") && (r === "all" || t.run === r) && S.inGroup(t, state.trader)).length;
   $("#scope").innerHTML = ["all", "test", "real"].map((r) => `<button class="tab" type="button" data-scope="${r}" aria-selected="${state.scope === r}">${r === "all" ? "All runs" : r === "test" ? "Test run" : "Real run"} <small>${count(r)}</small></button>`).join("");
 }
 
+function crossedTag(p) {
+  if (!p.crossed) return "";
+  const t = p.crossed_sells.map((c) => `${S.GROUP_LABEL[c.seller]} sold ${fmt.num(c.qty)} (${fmt.sol(c.realized, true)} SOL)`).join("; ");
+  return ` <span class="tag crossed" data-crossed="${p.crossed_sells.length}" title="${esc(`Sold from the other group's inventory: ${t}`)}">crossed</span>`;
+}
 function positionCard(p, m) {
   const next = S.nextAction(p, p.ex, m.now);
   const pt = p.planned_targets;
@@ -214,7 +293,7 @@ function positionCard(p, m) {
   }
   const priceInfo = m.marks[p.mint] && m.marks[p.mint].info;
   return `<article class="pos" data-pos="${esc(p.token)}">
-    <div class="pos-head"><div><b>${esc(p.token)}</b> <span class="tag ${p.run}">${p.run}</span> <small class="muted">${p.buys.length} buy${p.buys.length > 1 ? "s" : ""} · held ${fmt.dur(p.hold_ms)}</small></div>
+    <div class="pos-head"><div><b>${esc(p.token)}</b> ${badge(p.trader, p.buys.some((b) => b._tsrc !== "logged") ? "inferred" : "logged", p.buys.some((b) => b._live))} <span class="tag ${p.run}">${p.run}</span>${crossedTag(p)} <small class="muted">${p.buys.length} buy${p.buys.length > 1 ? "s" : ""} · held ${fmt.dur(p.hold_ms)}</small></div>
       <div class="xm ${cls(p.x == null ? null : p.x - 1)}" data-k="x">${fmt.x(p.x)}</div></div>
     <div class="pos-grid">
       <div><small>Cost</small><b data-k="cost">${fmt.sol(p.remaining_cost)}</b></div>
@@ -238,9 +317,11 @@ function renderRulePanel(m) {
   const start = S.ms(state.doc.real_run_start_aest || "2026-10-06T21:12:00+10:00");
   const armed = m.now >= start;
   const scope = state.preview ? "test" : "real";
-  const r = S.rulePanel(m.all, m.positions, m.now, { scope });
+  const g = state.trader;
+  const rows = m.all.filter((t) => t.action === "DEPOSIT" || t.action === "WITHDRAW" || S.inGroup(t, g));
+  const r = S.rulePanel(rows, m.positions.filter((p) => g === "all" || p.trader === g), m.now, { scope });
   const item = (k, title, o, detail) => `<div class="rule ${o.level}" data-rule="${k}" data-level="${o.level}"><span class="light"></span><div><b>${title}</b><p>${esc(o.text)}</p>${detail ? `<small>${detail}</small>` : ""}</div></div>`;
-  $("#rules").innerHTML = `<div class="panel-head"><div><h2>Real-run limits</h2><p>${armed ? "Real run is live." : `Not armed until ${fmt.time(start)}.`} ${state.preview ? '<b class="warn">Previewing with test-run data.</b>' : ""}</p></div>
+  $("#rules").innerHTML = `<div class="panel-head"><div><h2>Real-run limits</h2><p>${armed ? "Real run is live." : `Not armed until ${fmt.time(start)}.`}${g !== "all" ? ` Showing ${S.GROUP_LABEL[g]} trades only (top-ups are shared).` : ""} ${state.preview ? '<b class="warn">Previewing with test-run data.</b>' : ""}</p></div>
       <label class="switch"><input type="checkbox" id="preview" ${state.preview ? "checked" : ""}/> Preview on test data</label></div>
     <div class="rules">
       ${item("buys", "Buys today (max 2)", r.buys, `n = ${r.buys.n} since ${fmt.time(r.day_start)}`)}
@@ -257,7 +338,7 @@ function statCard(label, value, sub, k) {
 function renderAggregates(m) {
   const a = m.agg, st = a.streaks;
   const pf = a.profit_factor === Infinity ? "∞ (no losses)" : a.profit_factor == null ? "n/a" : a.profit_factor.toFixed(2);
-  $("#aggs").innerHTML = `<div class="panel-head"><div><h2>Performance</h2><p>Closed positions only (average cost). ${nTag(a.n_closed, " closed")} · ${a.n_open} open</p></div></div>
+  $("#aggs").innerHTML = `<div class="panel-head"><div><h2>Performance${state.trader !== "all" ? ` · ${S.GROUP_LABEL[state.trader]}` : ""}</h2><p>Closed positions only (FIFO lots per Me / Agent). ${nTag(a.n_closed, " closed")} · ${a.n_open} open</p></div></div>
     ${few(a.n_closed)}
     <div class="stats">
       ${statCard("Win rate", a.win_rate == null ? "n/a" : a.win_rate.toFixed(1) + "%", `${a.wins} W / ${a.losses} L · n = ${a.n_closed}`, "win-rate")}
@@ -265,7 +346,7 @@ function renderAggregates(m) {
       ${statCard("Avg loss", fmt.sol(a.avg_loss_sol, true), fmt.pct(a.avg_loss_pct) + ` · n = ${a.losses}`, "avg-loss")}
       ${statCard("Profit factor", pf, "gross wins / gross losses", "pf")}
       ${statCard("Expectancy / trade", fmt.sol(a.expectancy_sol, true) + " SOL", fmt.pct(a.expectancy_pct) + ` · avg ${fmt.r(a.avg_r)}`, "expectancy")}
-      ${statCard("Max drawdown", fmt.sol(m.eq.max_dd, true) + " SOL", `${fmt.pct(m.eq.max_dd_pct)} of peak equity (mark-to-market${m.eq.approx ? ", approx" : ""}) · closed-only ${fmt.sol(a.max_dd_closed.dd, true)}`, "maxdd")}
+      ${statCard("Max drawdown", fmt.sol(m.eq.max_dd, true) + " SOL", `${m.eq.max_dd_pct == null ? "on this group's P&amp;L curve" : `${fmt.pct(m.eq.max_dd_pct)} of peak equity`} (mark-to-market${m.eq.approx ? ", approx" : ""}) · closed-only ${fmt.sol(a.max_dd_closed.dd, true)}`, "maxdd")}
       ${statCard("Streak", st.current ? `${st.current.n} ${st.current.kind}${st.current.n > 1 ? (st.current.kind === "win" ? "s" : "es") : ""}` : "n/a", `longest: ${st.longest_win} W / ${st.longest_loss} L`, "streak")}
       ${statCard("Fees paid", fmt.sol(a.fees_sol) + " SOL", `${a.fees_pct_of_pnl == null ? "n/a" : a.fees_pct_of_pnl.toFixed(1) + "%"} of |net P&amp;L| · network + tips + platform`, "fees")}
     </div>`;
@@ -275,7 +356,7 @@ function renderCharts(m) {
   const pts = m.eq.points;
   const tf = (t) => new Date(t).toLocaleString("en-AU", { timeZone: TZ, day: "numeric", month: "short", hour: "numeric" });
   const equity = lineChart({ label: "equity", series: [
-    { name: "P&L incl. mark-to-market (SOL)", color: COLORS.amber, area: true, points: pts.map((p) => ({ x: p.t, y: p.pnl })) },
+    { name: `${state.trader === "all" ? "" : S.GROUP_LABEL[state.trader] + " "}P&L incl. mark-to-market (SOL)`, color: COLORS.amber, area: true, points: pts.map((p) => ({ x: p.t, y: p.pnl })) },
     { name: "Realized P&L", color: COLORS.mint, dash: "5 4", points: pts.map((p) => ({ x: p.t, y: p.realized })) },
   ], yFmt: (v) => v.toFixed(3), xFmt: tf });
   const dd = lineChart({ label: "drawdown", height: 120, series: [{ name: "Drawdown (SOL)", color: COLORS.red, area: true, points: pts.map((p) => ({ x: p.t, y: p.dd })) }], yFmt: (v) => v.toFixed(3), xFmt: tf });
@@ -291,7 +372,7 @@ function renderCharts(m) {
   const cal = calendar({ days, todayIso: S.aestDay(m.now), fmt: (v) => fmt.sol(v, true) });
   const nClosed = closedPct.length;
   $("#charts").innerHTML = `
-    <div class="panel wide"><div class="panel-head"><div><h2>Equity curve</h2><p>P&amp;L vs deposits over time, realized plus mark-to-market. ${nTag(m.sTrades.length, " log rows")}</p></div></div>
+    <div class="panel wide"><div class="panel-head"><div><h2>Equity curve</h2><p>${state.trader === "all" ? "P&amp;L vs deposits over time" : `${S.GROUP_LABEL[state.trader]} P&amp;L from its own positions`}, realized plus mark-to-market. ${nTag(m.sTrades.length, " log rows")}</p></div></div>
       ${m.eq.approx ? '<p class="muted tiny" data-k="eq-approx">Where price history is unavailable, open tokens are marked at cost (flat), so the curve is approximate there.</p>' : ""}
       ${equity}${dd}</div>
     <div class="panel"><div class="panel-head"><div><h2>P&amp;L distribution</h2><p>Per position, % of cost. ${nTag(nClosed, " closed")} + ${openPct.length} open (faded)</p></div></div>${hist}</div>
@@ -333,7 +414,7 @@ function renderAdherence(m) {
 }
 
 function renderBreakdowns(m) {
-  const dims = [["token", "Token"], ["hour", "Entry hour (AEST)"], ["dow", "Day of week"], ["hold", "Hold duration"], ["liquidity", "Liquidity at entry"], ["age", "Token age at entry"], ["run", "Test vs real"]];
+  const dims = [["token", "Token"], ["hour", "Entry hour (AEST)"], ["dow", "Day of week"], ["hold", "Hold duration"], ["liquidity", "Liquidity at entry"], ["age", "Token age at entry"], ["run", "Test vs real"], ["trader", "Me vs Agent"]];
   $("#breakdowns").innerHTML = `<div class="panel-head"><div><h2>Breakdowns</h2><p>Per position (first buy defines the bucket). Win rate uses closed positions; total includes unrealized. ${nTag(m.sPos.length, " positions")}</p></div></div>
     ${few(m.agg.n_closed)}
     <div class="bd-grid">${dims.map(([k, name]) => { const rows = S.breakdown(m.sPos, k); return `<div class="table-wrap bd" data-bd="${k}"><h3>${name}</h3><table class="compact"><thead><tr><th>${name}</th><th>n</th><th>Closed</th><th>Win%</th><th>Total SOL</th><th>ROI</th></tr></thead><tbody>${rows.map((r) => `<tr data-row="${esc(r.key)}"><td>${esc(r.key)}</td><td>${r.n}</td><td>${r.closed}</td><td>${r.win_rate == null ? "n/a" : r.win_rate.toFixed(0) + "%"}</td><td class="${cls(r.total)}">${fmt.sol(r.total, true)}${r.unknown_value ? "*" : ""}</td><td>${fmt.pct(r.roi_pct)}</td></tr>`).join("")}</tbody></table></div>`; }).join("")}</div>`;
@@ -342,8 +423,8 @@ function renderBreakdowns(m) {
 function renderClosed(m) {
   const list = [...m.sPos].sort((a, b) => b.open_time - a.open_time);
   $("#closed").innerHTML = `<div class="panel-head"><div><h2>Per-position stats</h2><p>R = P&amp;L% / 35% (the real-run hard stop). MFE/MAE from price history vs average cost. ${nTag(list.length)}</p></div></div>
-    <div class="table-wrap"><table><thead><tr><th>Token</th><th>Run</th><th>Opened</th><th>Hold</th><th>Cost</th><th>Out / value</th><th>P&amp;L</th><th>%</th><th>R</th><th>MFE</th><th>MAE</th><th>Fees</th><th>Exit</th></tr></thead>
-    <tbody>${list.map((p) => `<tr data-position="${esc(p.token)}" data-closed="${p.closed ? 1 : 0}"><td><b>${esc(p.token)}</b></td><td><span class="tag ${p.run}">${p.run}</span></td><td>${fmt.time(p.open_time)}</td><td data-k="hold">${fmt.dur(p.hold_ms)}${p.closed ? "" : " (open)"}</td><td>${fmt.sol(p.cost_in)}</td><td>${p.closed ? fmt.sol(p.proceeds) : fmt.sol(p.value == null ? null : p.value + p.proceeds)}</td><td class="${cls(p.total_pnl)}" data-k="pnl">${fmt.sol(p.total_pnl, true)}</td><td data-k="pct">${fmt.pct(p.pnl_pct)}</td><td data-k="r">${fmt.r(p.pnl_pct == null ? null : p.pnl_pct / S.STOP_PCT)}</td><td data-k="mfe">${p.ex ? fmt.pct(p.ex.mfe_pct, 0) : "n/a"}</td><td data-k="mae">${p.ex ? fmt.pct(p.ex.mae_pct, 0) : "n/a"}</td><td data-k="fees">${fmt.sol(p.fees)}</td><td>${esc(p.sells.map((s) => s.exit_reason || "?").join(", ") || "open")}</td></tr>`).join("")}</tbody></table></div>`;
+    <div class="table-wrap"><table><thead><tr><th>Token</th><th>Who</th><th>Run</th><th>Opened</th><th>Hold</th><th>Cost</th><th>Out / value</th><th>P&amp;L</th><th>%</th><th>R</th><th>MFE</th><th>MAE</th><th>Fees</th><th>Exit</th></tr></thead>
+    <tbody>${list.map((p) => `<tr data-position="${esc(p.token)}" data-trader="${p.trader}" data-closed="${p.closed ? 1 : 0}"><td><b>${esc(p.token)}</b>${crossedTag(p)}</td><td>${badge(p.trader, p.buys.some((b) => b._tsrc !== "logged") ? "inferred" : "logged", p.buys.some((b) => b._live))}</td><td><span class="tag ${p.run}">${p.run}</span></td><td>${fmt.time(p.open_time)}</td><td data-k="hold">${fmt.dur(p.hold_ms)}${p.closed ? "" : " (open)"}</td><td>${fmt.sol(p.cost_in)}</td><td>${p.closed ? fmt.sol(p.proceeds) : fmt.sol(p.value == null ? null : p.value + p.proceeds)}</td><td class="${cls(p.total_pnl)}" data-k="pnl">${fmt.sol(p.total_pnl, true)}</td><td data-k="pct">${fmt.pct(p.pnl_pct)}</td><td data-k="r">${fmt.r(p.pnl_pct == null ? null : p.pnl_pct / S.STOP_PCT)}</td><td data-k="mfe">${p.ex ? fmt.pct(p.ex.mfe_pct, 0) : "n/a"}</td><td data-k="mae">${p.ex ? fmt.pct(p.ex.mae_pct, 0) : "n/a"}</td><td data-k="fees">${fmt.sol(p.fees)}</td><td>${esc(p.sells.map((s) => s.exit_reason || "?").join(", ") || "open")}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
 function outcomeOf(t, m) {
@@ -357,20 +438,22 @@ function outcomeOf(t, m) {
 function renderHistory(m) {
   const f = state.filters;
   const tokens = [...new Set(m.all.filter((t) => t.token && t.action !== "DEPOSIT" && t.action !== "WITHDRAW").map((t) => t.token))].sort();
-  const rows = m.all.filter((t) => (f.run === "all" || t.run === f.run) && (f.token === "all" || t.token === f.token) && (f.action === "all" || t.action === f.action) && (f.outcome === "all" || outcomeOf(t, m) === f.outcome)).reverse();
+  const rows = m.all.filter((t) => S.inGroup(t, state.trader)).filter((t) => (f.run === "all" || t.run === f.run) && (f.token === "all" || t.token === f.token) && (f.action === "all" || t.action === f.action) && (f.outcome === "all" || outcomeOf(t, m) === f.outcome)).reverse();
   const sel = (id, opts, v) => `<select class="filter" id="${id}" aria-label="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
   const card = (t) => {
     const i = m.rowInfo.get(t.id) || {};
     const p = i.position;
     const slip = t.price_expected ? ((t.price_filled / t.price_expected - 1) * 100 * (t.action === "SELL" ? -1 : 1)) : null;
     const extra = [];
+    if (t.action === "SELL" && i.crossed) extra.push(`<span class="tag crossed" data-k="crossed">crossed: ${esc(i.legs.filter((l) => l.crossed).map((l) => `${fmt.num(l.qty)} from ${S.GROUP_LABEL[l.position.trader]}'s bag`).join(", "))}</span>`);
     if (t.action === "SELL" && i.realized != null) extra.push(`<span class="${cls(i.realized)}" data-k="leg-pnl">${fmt.sol(i.realized, true)} SOL (${fmt.pct(i.pnl_pct)}, ${fmt.r(i.pnl_pct / S.STOP_PCT)})</span>`, `hold ${fmt.dur(S.ms(t.time_aest) - p.open_time)}`);
     if (p && (t.action === "BUY" || t.action === "SELL")) extra.push(`MFE/MAE ${p.ex ? `${fmt.pct(p.ex.mfe_pct, 0)}/${fmt.pct(p.ex.mae_pct, 0)}` : "n/a"}`);
     if (t.fee_sol != null && (t.action === "BUY" || t.action === "SELL")) extra.push(`fees ${fmt.sol(t.fee_sol)}`);
     if (t.action === "BUY" || t.action === "SELL") extra.push(`slippage ${slip == null ? "n/a" : fmt.pct(slip, 2)}`);
     const snap = t.entry_snapshot;
-    return `<details class="trade" data-trade="${esc(t.id)}" data-action="${t.action}" data-outcome="${outcomeOf(t, m) || ""}">
-      <summary><span class="act ${t.action.toLowerCase()}">${t.action}</span><b>${esc(t.token || "SOL")}</b> <span class="tag ${t.run}">${t.run}</span>
+    const ov = state.overrides[t.tx];
+    return `<details class="trade" data-trade="${esc(t.id)}" data-tx="${esc(t.tx)}" data-action="${t.action}" data-trader="${t._trader}" data-outcome="${outcomeOf(t, m) || ""}"${state.openTrade === t.tx ? " open" : ""}>
+      <summary><span class="act ${t.action.toLowerCase()}">${t.action}</span><b>${esc(t.token || "SOL")}</b> ${badge(t._trader, t._tsrc, t._live)} <span class="tag ${t.run}">${t.run}</span>
         <span class="amt">${t.action === "BUY" || t.action === "WITHDRAW" ? "-" : "+"}${fmt.sol(t.sol)} SOL</span>
         <small class="muted">${fmt.time(S.ms(t.time_aest))}${t.exit_reason ? ` · ${esc(t.exit_reason)}` : ""}</small>
         <small class="stats-line">${extra.join(" · ")}</small></summary>
@@ -386,11 +469,22 @@ function renderHistory(m) {
             <dt>Filters</dt><dd>${snap.filters_passed.map((x) => `<span class="tag pass">${esc(S.FILTER_NAMES[x] || x)}</span>`).join(" ")} ${snap.filters_failed.map((x) => `<span class="tag fail">${esc(S.FILTER_NAMES[x] || x)}</span>`).join(" ")}${!snap.filters_passed.length && !snap.filters_failed.length ? '<span class="muted">none recorded</span>' : ""}</dd>` : ""}
           ${t.planned_targets ? `<dt>Plan</dt><dd>${esc(t.planned_targets.note || t.planned_targets.rule_set)}</dd>` : ""}
           ${t.unverified && t.unverified.length ? `<dt>Unverified</dt><dd class="muted">${esc(t.unverified.join(", "))}</dd>` : ""}
-          <dt>Tx</dt><dd><a href="${SOLSCAN(t.tx)}" target="_blank" rel="noopener" data-k="tx">${esc(t.tx.slice(0, 16))}…</a></dd>
+          ${t.proceeds_external ? `<dt>Proceeds</dt><dd data-k="ext">${fmt.num(t.proceeds_external.amount, 6)} ${esc(t.proceeds_external.asset)} paid to <code>${esc(t.proceeds_external.to.slice(0, 6))}…</code> (≈ ${fmt.sol(t.proceeds_external.sol_equiv)} SOL); wallet SOL change ${fmt.sol(t.wallet_sol_delta, true)}</dd>` : ""}
+          <dt>Tx</dt><dd><a href="${SOLSCAN(t.tx)}" target="_blank" rel="noopener" data-k="tx">${esc(t.tx.slice(0, 16))}…</a>${(t.linked_txs || []).map((x, k) => ` · <a href="${SOLSCAN(x)}" target="_blank" rel="noopener" data-k="linked">linked ${k + 1}</a>`).join("")}</dd>
+          <dt>Trader</dt><dd>${badge(t._trader, t._tsrc, t._live)} <small class="muted">${t._live ? "live, not logged" : t._tsrc === "manual_override" && ov ? `overridden here (file says ${S.GROUP_LABEL[t.trader || S.traderOf(t)]})` : esc(t._tsrc)}</small></dd>
         </dl>
+        <div class="override" data-override-for="${esc(t.tx)}">
+          <button type="button" class="btn ghost sm" data-mark="human" ${t._trader === "human" ? "disabled" : ""}>Mark as Me</button>
+          <button type="button" class="btn ghost sm" data-mark="agent" ${t._trader === "agent" ? "disabled" : ""}>Mark as Agent</button>
+          ${ov ? '<button type="button" class="btn ghost sm" data-mark="reset">Reset</button>' : ""}
+          <small class="muted">Stored on this device only. Export below to merge into trades.json.</small>
+        </div>
       </div></details>`;
   };
-  $("#history").innerHTML = `<div class="panel-head"><div><h2>Trade history</h2><p>Tap a row for details. ${nTag(rows.length, " shown")} of ${m.all.length}</p></div></div>
+  const ovList = Object.entries(state.overrides);
+  $("#history").innerHTML = `<div class="panel-head"><div><h2>Trade history</h2><p>Tap a row for details. ${nTag(rows.length, " shown")} of ${m.all.length}</p></div>
+      <button type="button" class="btn ghost sm" id="export-overrides" data-n="${ovList.length}" ${ovList.length ? "" : "disabled"}>Export overrides (${ovList.length})</button></div>
+    ${ovList.length ? `<details class="ov-json"><summary>Local trader overrides (${ovList.length}): JSON for <code>add-trade.mjs --apply-overrides</code></summary><textarea readonly rows="5" data-k="overrides-json">${esc(overridesJson(m))}</textarea></details>` : ""}
     <div class="filters">
       ${sel("f-run", [["all", "All runs"], ["test", "Test"], ["real", "Real"]], f.run)}
       ${sel("f-token", [["all", "All tokens"], ...tokens.map((t) => [t, t])], f.token)}
@@ -400,11 +494,49 @@ function renderHistory(m) {
     <div class="trades">${rows.map(card).join("") || '<p class="muted" data-k="no-rows">No rows match these filters.</p>'}</div>`;
 }
 
+function overridesJson(m) {
+  const byTx = new Map(m.all.map((t) => [t.tx, t]));
+  const list = Object.entries(state.overrides).map(([tx, trader]) => { const t = byTx.get(tx); return { tx, trader, id: t ? t.id : null, was: t ? t.trader || S.traderOf(t) : null }; });
+  return JSON.stringify({ schema: "ht-trader-overrides/1", wallet: state.doc.wallet, exported_at: new Date().toISOString(), overrides: list }, null, 2);
+}
+
+function renderCompare(m) {
+  const c = m.cmp, fx = state.live.fx;
+  const aud = (v) => fmt.money(toFiat(v, "AUD"), "AUD", true);
+  const pf = (v) => (v === Infinity ? "∞" : v == null ? "n/a" : v.toFixed(2));
+  const rows = [
+    ["trades", "Trades (buys + sells)", (x) => `${x.trades}`, (x) => `${x.buys} buys · ${x.sells} sells`],
+    ["win-rate", "Win rate", (x) => (x.win_rate == null ? "n/a" : x.win_rate.toFixed(1) + "%"), (x) => `${x.wins} W / ${x.losses} L · n = ${x.n_closed}`],
+    ["realized", "Realized P&amp;L", (x) => fmt.sol(x.realized_sol, true), (x) => aud(x.realized_sol)],
+    ["unrealized", "Unrealized P&amp;L", (x) => fmt.sol(x.unrealized_sol, true), (x) => `${aud(x.unrealized_sol)}${x.unrealized_unknown ? ` · ${x.unrealized_unknown} unpriced` : ""} · ${x.n_open} open`],
+    ["pf", "Profit factor", (x) => pf(x.profit_factor), () => "gross wins / gross losses"],
+    ["expectancy", "Expectancy / trade", (x) => fmt.sol(x.expectancy_sol, true), (x) => `${fmt.pct(x.expectancy_pct)} per closed position`],
+    ["hold", "Avg hold (closed)", (x) => fmt.dur(x.avg_hold_ms), (x) => `n = ${x.n_closed}`],
+    ["maxdd", "Max drawdown", (x) => fmt.sol(x.max_dd, true), () => "on the group's P&amp;L curve"],
+    ["fees", "Fees paid", (x) => fmt.sol(x.fees_sol), (x) => aud(-x.fees_sol).replace(/^-/, "")],
+    ["crossed", "Crossed sells", (x) => `${x.crossed}`, (x) => (x.crossed ? `${fmt.sol(x.crossed_sol, true)} SOL realized on this group's bags by the other` : "none")],
+  ];
+  const cell = (g, [k, , v, sub]) => `<td class="${g}${state.trader === g ? " sel" : ""}"><b data-cmp="${g}-${k}" class="${k === "realized" ? cls(c[g].realized_sol) : k === "unrealized" ? cls(c[g].unrealized_sol) : ""}">${v(c[g])}</b><small>${sub(c[g])}</small></td>`;
+  const tf = (t) => new Date(t).toLocaleString("en-AU", { timeZone: TZ, day: "numeric", month: "short", hour: "numeric" });
+  const chart = lineChart({ label: "compare-equity", series: [
+    { name: "🧑 Me: P&L incl. mark-to-market (SOL)", color: COLORS.mint, points: m.curves.human.points.map((p) => ({ x: p.t, y: p.pnl })) },
+    { name: "🤖 Agent", color: COLORS.amber, points: m.curves.agent.points.map((p) => ({ x: p.t, y: p.pnl })) },
+  ], yFmt: (v) => v.toFixed(3), xFmt: tf });
+  const fewG = (g) => (c[g].n_closed < S.MIN_SAMPLE ? `<p class="few" data-few="${g}">${S.GROUP_LABEL[g]}: too few trades for reliable statistics (n = ${c[g].n_closed} closed positions; ${S.MIN_SAMPLE}+ recommended).</p>` : "");
+  $("#compare").innerHTML = `<div class="panel-head"><div><h2>Me vs Agent</h2><p>Same wallet, split by who traded. Sells are matched FIFO to buys of the same group per token; a sell from the other group's bag is flagged <span class="tag crossed">crossed</span> and its P&amp;L stays with the bag. ${nTag(c.human.n_closed, " closed (Me)")} · ${nTag(c.agent.n_closed, " closed (Agent)")}${state.scope !== "all" ? ` · ${esc(state.scope)} run only` : ""}</p></div></div>
+    ${fewG("human")}${fewG("agent")}
+    <div class="table-wrap"><table class="cmp"><thead><tr><th></th><th class="human">${WHO.human}</th><th class="agent">${WHO.agent}</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr data-cmp-row="${r[0]}"><th>${r[1]}</th>${cell("human", r)}${cell("agent", r)}</tr>`).join("")}</tbody></table></div>
+    ${m.curves.human.approx || m.curves.agent.approx ? '<p class="muted tiny">Open tokens without price history are marked at cost (flat), so the curves are approximate there.</p>' : ""}
+    ${chart}
+    <p class="muted tiny">AUD at today's rate${fx && fx.usd_aud ? ` (1 SOL = A$${(fx.sol_usd * fx.usd_aud).toFixed(2)})` : " (unavailable)"}. Rows marked ? are inferred (on-chain activity not logged by Hades); * = re-assigned on this device.</p>`;
+}
+
 let last;
 function renderAll() {
   const m = model();
   last = m;
-  renderHeader(m); renderAlerts(m); renderScope(m); renderPositions(m); renderRulePanel(m);
+  renderTraderSeg(m); renderHeader(m); renderAlerts(m); renderScope(m); renderCompare(m); renderPositions(m); renderRulePanel(m);
   renderAggregates(m); renderCharts(m); renderAdherence(m); renderBreakdowns(m); renderClosed(m); renderHistory(m);
   document.body.dataset.ready = state.live.lastLive ? "live" : "static";
 }
@@ -439,17 +571,17 @@ async function refreshLive() {
 async function loadUnlogged() {
   const L = state.live;
   if (!L.wallet || !L.wallet.sigs) { L.unlogged = []; return; }
-  const logged = new Set(state.trades.map((t) => t.tx));
+  const logged = loggedTxSet(state.trades);
   const firstLogged = state.trades.length ? S.ms(state.trades[0].time_aest) / 1000 : 0;
   const prev = new Map(L.unlogged.map((u) => [u.sig, u]));
   L.unlogged = L.wallet.sigs.filter((s) => !s.err && !logged.has(s.sig) && (!s.t || s.t >= firstLogged - 60)).map((s) => prev.get(s.sig) || { sig: s.sig, t: s.t });
   renderAll();
-  for (const u of L.unlogged.slice(0, 6)) {
+  for (const u of L.unlogged.slice(0, 25)) {
     if (u.parsed || u.parseError) continue;
     try {
-      const cachedParsed = src.cacheGet(`parsed:${u.sig}`);
+      const cachedParsed = src.cacheGet(`parsed2:${u.sig}`);
       if (cachedParsed) u.parsed = cachedParsed.v;
-      else { const tx = await src.getTx(u.sig); u.parsed = parseTx(tx, state.doc.wallet); src.cacheSet(`parsed:${u.sig}`, u.parsed); }
+      else { const tx = await src.getTx(u.sig); u.parsed = parseTx(tx, state.doc.wallet); src.cacheSet(`parsed2:${u.sig}`, u.parsed); }
       if (u.parsed.mint && L.prices[u.parsed.mint]) u.symbol = L.prices[u.parsed.mint].symbol;
     } catch (e) { u.parseError = e.message; }
   }
@@ -457,7 +589,7 @@ async function loadUnlogged() {
 
 async function loadCandles() {
   const L = state.live;
-  const { positions } = S.buildPositions(state.trades);
+  const { positions } = S.buildPositions(S.annotate([...state.trades, ...liveRows()].sort((a, b) => S.ms(a.time_aest) - S.ms(b.time_aest)), state.overrides));
   const now = Date.now();
   let ok = 0, fail = 0, missing = 0;
   const errs = [];
@@ -482,10 +614,33 @@ function bind() {
   document.addEventListener("click", (e) => {
     const t = e.target.closest("button, [data-scope]");
     if (!t) return;
+    if (t.dataset.trader) { state.trader = t.dataset.trader; localStorage.setItem("ht:trader", state.trader); renderAll(); return; }
+    if (t.dataset.mark) {
+      const tx = t.closest("[data-override-for]").dataset.overrideFor;
+      const row = state.trades.find((x) => x.tx === tx) || (last && last.all.find((x) => x.tx === tx));
+      const fileTrader = row ? (row._live ? "human" : S.traderOf(row)) : null;
+      if (t.dataset.mark === "reset" || t.dataset.mark === fileTrader) delete state.overrides[tx]; else state.overrides[tx] = t.dataset.mark;
+      localStorage.setItem(OV_KEY, JSON.stringify(state.overrides));
+      state.openTrade = tx;
+      renderAll();
+      return;
+    }
+    if (t.id === "export-overrides") {
+      const blob = new Blob([overridesJson(last || model())], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "hades-trader-overrides.json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      return;
+    }
     if (t.id === "cur-toggle") { state.cur = { SOL: "AUD", AUD: "USD", USD: "SOL" }[state.cur]; localStorage.setItem("ht:cur", state.cur); renderAll(); }
     else if (t.id === "refresh") refreshLive();
     else if (t.dataset.scope) { state.scope = t.dataset.scope; localStorage.setItem("ht:scope", state.scope); renderAll(); }
   });
+  document.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (d && d.matches && d.matches("details.trade")) { if (d.open) state.openTrade = d.dataset.tx; else if (state.openTrade === d.dataset.tx) state.openTrade = null; }
+  }, true);
   document.addEventListener("change", (e) => {
     const t = e.target;
     if (t.id === "preview") { state.preview = t.checked; renderAll(); return; }

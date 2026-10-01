@@ -53,6 +53,30 @@ rename it over the original.
 | `token_program` | string \| null | SPL Token (`Tokenkeg...`) or Token-2022 (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`). |
 | `verified_chain` | boolean | true when amounts came from the chain (`--from-tx` or `--verify`). |
 | `unverified` | string[] | Fields that could not be verified (e.g. `price_expected`, `reason`, `usd_at_time`). |
+| `trader` | `agent` \| `human` | Optional (added 2026-10-01). Who made the trade: `agent` = Hades (the bot) executed and logged it; `human` = Jarrad traded manually in Phantom. |
+| `trader_source` | `logged` \| `inferred` \| `manual_override` | Optional, requires `trader`. `logged`: written by the trader's own logging (Hades via add-trade / trades.md, or `--trader` given explicitly). `inferred`: wallet activity Hades did not log (`--sync-unlogged`, or DEPOSIT/WITHDRAW defaults). `manual_override`: a person reclassified it (`--apply-overrides`). |
+| `linked_txs` | base58[] | Optional. Other signatures that belong to this row, e.g. the Phantom gas-sponsor loan in/out around a sponsored sell. They count as logged for dedupe and "unlogged activity". |
+| `wallet_sol_delta` | number | Optional, SELL only. Signed net change in the wallet's native SOL across the row's txs, when proceeds left the wallet (see `proceeds_external`). |
+| `proceeds_external` | object | Optional, SELL only: `{asset, mint, amount, to, sol_equiv, sol_usd}`. Phantom sold to a stablecoin (e.g. CASH) and sent it to another wallet `to`. Then `sol = sol_equiv + wallet_sol_delta` (proceeds valued in SOL at `sol_usd`). |
+
+### Trader classification and backwards compatibility
+
+- Missing `trader`: BUY/SELL rows are treated as `agent` / `logged` (everything
+  logged before 2026-10-01 came from Hades); DEPOSIT/WITHDRAW are `human` /
+  `inferred`. `add-trade.mjs --backfill-trader` writes these defaults into the file.
+- Hades runs `add-trade.mjs --from-tx <sig> ...` and gets `trader: agent`,
+  `trader_source: logged` by default. `--trader human` marks a row the user did
+  himself (`logged`).
+- `add-trade.mjs --sync-unlogged` adds every wallet tx not in the file as
+  `trader: human`, `trader_source: inferred`, `reason: "manual (user)"`,
+  `exit_reason: "manual"` on sells, run by date. Phantom gas-sponsored sells
+  (loan in → sell to CASH → loan out) are merged into one SELL with `linked_txs`.
+- The dashboard's local "Mark as Me / Mark as Agent" overrides live in localStorage
+  key `ht-trader-overrides` (`{tx: trader}`). The export
+  (`hades-trader-overrides.json`) is merged with `add-trade.mjs --apply-overrides <file>`,
+  which sets `trader_source: manual_override`.
+- Live unlogged activity shown by the page counts as `human` / `inferred` until it
+  is logged.
 
 ### `entry_snapshot` (BUY rows)
 
@@ -103,8 +127,18 @@ stated in trades.md (e.g. 101x, keep >= 10%, no stop).
 ## How the app computes things
 
 - Cost of a BUY = `sol - rent_sol`; proceeds of a SELL = `sol + rent_sol`.
-- Positions use average cost per mint; a position closes when its quantity returns
-  to 0. Win/loss, win rate, profit factor, expectancy and streaks use closed positions.
+- Wallet SOL change of a row = `sol` signed by action, or `wallet_sol_delta` when
+  set. Sponsored-sell proceeds that went to another wallet count as a withdrawal
+  of `sol_equiv` in the equity curve and "Deposited".
+- Attribution is FIFO per token **within each group** (Me / Agent): a SELL consumes
+  the oldest unsold buys of its own group. If its group has no inventory, it
+  consumes the other group's buys and the leg is flagged **crossed**; that leg's
+  P&L stays with the group that owns the inventory (who bought it), and the sell is
+  shown with a "crossed" tag. A position is (token, group); it closes when that
+  group's quantity returns to 0. Win/loss, win rate, profit factor, expectancy and
+  streaks use closed positions. DEPOSIT/WITHDRAW are excluded from trade stats.
+- Group P&L curve = cumulative realized + unrealized P&L of that group's positions;
+  group max drawdown is in SOL on that curve (no %, the groups share one wallet).
 - R = P&L% / 35% (the real-run hard stop).
 - Wallet value = live SOL + reclaimable token-account rent + token balances x price.
 - Deposited = sum of DEPOSIT minus WITHDRAW `sol`; fiat deposited uses `usd_at_time`.

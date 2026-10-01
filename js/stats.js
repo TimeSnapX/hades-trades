@@ -38,63 +38,129 @@ const EPS_QTY = 1e-9;
 
 export const tradeCost = (t) => t.sol - (t.rent_sol || 0);
 export const tradeProceeds = (t) => t.sol + (t.rent_sol || 0);
+// Change of the wallet's native SOL balance. A SELL whose proceeds were paid to
+// another account (proceeds_external) records the real change in wallet_sol_delta.
 export function solDelta(t) {
+  if (typeof t.wallet_sol_delta === "number") return t.wallet_sol_delta;
   if (t.action === "DEPOSIT" || t.action === "SELL") return t.sol;
   return -t.sol;
+}
+// Net money the user put in (+) or took out (-). External sell proceeds count as
+// a withdrawal of their value (they left the wallet straight away).
+export function depositDelta(t) {
+  if (t.action === "DEPOSIT") return t.sol;
+  if (t.action === "WITHDRAW") return -t.sol;
+  if (t.action === "SELL" && t.proceeds_external) return -(t.proceeds_external.sol_equiv || 0);
+  return 0;
+}
+export function depositDeltaUsd(t) {
+  if (t.action === "DEPOSIT") return t.usd_at_time;
+  if (t.action === "WITHDRAW") return t.usd_at_time == null ? null : -t.usd_at_time;
+  if (t.action === "SELL" && t.proceeds_external) return t.proceeds_external.usd_equiv == null ? null : -t.proceeds_external.usd_equiv;
+  return 0;
 }
 
 export function inScope(t, scope) { return !scope || scope === "all" || t.run === scope; }
 
+// ---- Me vs Agent ----------------------------------------------------------
+export const GROUPS = ["human", "agent"];
+export const GROUP_LABEL = { human: "Me", agent: "Agent", all: "All" };
+// overrides: {tx: "human"|"agent"} (local, from the app's localStorage).
+export function traderOf(t, overrides) {
+  const o = overrides && overrides[t.tx];
+  if (o === "human" || o === "agent") return o;
+  if (t.trader === "human" || t.trader === "agent") return t.trader;
+  return t.action === "DEPOSIT" || t.action === "WITHDRAW" ? "human" : "agent";
+}
+export function traderSourceOf(t, overrides) {
+  const o = overrides && overrides[t.tx];
+  if ((o === "human" || o === "agent") && o !== (t.trader || null)) return "manual_override";
+  if (t.trader_source) return t.trader_source;
+  if (t.trader) return "logged";
+  return t.action === "DEPOSIT" || t.action === "WITHDRAW" ? "inferred" : "logged";
+}
+// Copies of the rows with the effective group in `_trader` / `_tsrc`.
+export function annotate(trades, overrides) {
+  return trades.map((t) => ({ ...t, _trader: traderOf(t, overrides), _tsrc: traderSourceOf(t, overrides) }));
+}
+const groupOf = (t) => t._trader || traderOf(t);
+export function inGroup(x, g) { return !g || g === "all" || (x._trader ? x._trader : x.trader ? x.trader : groupOf(x)) === g; }
+
 // ---- positions ------------------------------------------------------------
-export function buildPositions(trades) {
-  const open = new Map();
-  const all = [];
-  const rowInfo = new Map(); // trade id -> {position, realized, pnl_pct, cost_out}
-  for (const t of trades) {
-    if (t.action !== "BUY" && t.action !== "SELL") continue;
-    let p = open.get(t.mint);
+// One position per (mint, group, episode). Lots are matched FIFO within the
+// group; a sell with no (or not enough) inventory in its own group takes the
+// other group's inventory and that leg is flagged `crossed`.
+export class Ledger {
+  constructor() { this.open = new Map(); this.all = []; this.rowInfo = new Map(); }
+  _new(t, g) {
+    const p = { key: `${t.mint}:${g}:${this.all.length}`, mint: t.mint, token: t.token, trader: g, run: t.run, open_time: ms(t.time_aest), close_time: null, buys: [], sells: [], lots: [], qty: 0, bought_qty: 0, cost_in: 0, remaining_cost: 0, proceeds: 0, realized: 0, fees: 0, closed: false, crossed: false, crossed_sells: [] };
+    this.open.set(`${t.mint}|${g}`, p); this.all.push(p);
+    return p;
+  }
+  apply(t) {
+    if (t.action !== "BUY" && t.action !== "SELL") return null;
+    const g = groupOf(t);
     if (t.action === "BUY") {
-      if (!p) {
-        p = { key: `${t.mint}:${all.length}`, mint: t.mint, token: t.token, run: t.run, open_time: ms(t.time_aest), close_time: null, buys: [], sells: [], qty: 0, bought_qty: 0, cost_in: 0, remaining_cost: 0, proceeds: 0, realized: 0, fees: 0, closed: false };
-        open.set(t.mint, p);
-        all.push(p);
-      }
+      const p = this.open.get(`${t.mint}|${g}`) || this._new(t, g);
       const c = tradeCost(t);
       p.buys.push(t);
-      p.qty += t.tokens;
-      p.bought_qty += t.tokens;
-      p.cost_in += c;
-      p.remaining_cost += c;
-      p.fees += t.fee_sol || 0;
-      rowInfo.set(t.id, { position: p });
-    } else {
-      if (!p || p.qty <= 0) { rowInfo.set(t.id, { position: null, orphan: true }); continue; }
-      const frac = Math.min(1, t.tokens / p.qty);
-      const costOut = p.remaining_cost * frac;
-      const proceeds = tradeProceeds(t);
-      const realized = proceeds - costOut;
-      p.sells.push(t);
-      p.remaining_cost -= costOut;
-      p.qty -= t.tokens;
-      p.proceeds += proceeds;
-      p.realized += realized;
-      p.fees += t.fee_sol || 0;
-      rowInfo.set(t.id, { position: p, realized, cost_out: costOut, pnl_pct: costOut ? (realized / costOut) * 100 : null, exit_x: costOut ? proceeds / costOut : null });
-      if (p.qty <= Math.max(EPS_QTY, p.bought_qty * 1e-9)) {
-        p.qty = 0; p.remaining_cost = 0; p.closed = true; p.close_time = ms(t.time_aest);
-        open.delete(t.mint);
+      p.lots.push({ qty: t.tokens, cost: c, qty0: t.tokens });
+      p.qty += t.tokens; p.bought_qty += t.tokens; p.cost_in += c; p.remaining_cost += c; p.fees += t.fee_sol || 0;
+      const info = { position: p, legs: [], group: g };
+      this.rowInfo.set(t.id, info);
+      return info;
+    }
+    const other = g === "human" ? "agent" : "human";
+    const legs = [];
+    let need = t.tokens;
+    for (const [grp, crossed] of [[g, false], [other, true]]) {
+      const p = this.open.get(`${t.mint}|${grp}`);
+      if (!p || need <= 0) continue;
+      let q = 0, c = 0;
+      while (need > 0 && p.lots.length) {
+        const lot = p.lots[0];
+        const take = Math.min(need, lot.qty);
+        const co = lot.qty > 0 ? lot.cost * (take / lot.qty) : 0;
+        lot.qty -= take; lot.cost -= co; need -= take; q += take; c += co;
+        if (lot.qty <= Math.max(EPS_QTY, lot.qty0 * 1e-9)) { c += lot.cost; q += lot.qty; need -= Math.min(need, lot.qty); p.lots.shift(); }
+      }
+      if (need > 0 && need <= Math.max(EPS_QTY, t.tokens * 1e-9)) need = 0; // rounding dust
+      if (q > 0) legs.push({ position: p, qty: q, cost_out: c, crossed, seller: g });
+    }
+    if (!legs.length) { const info = { position: null, orphan: true, legs: [], group: g }; this.rowInfo.set(t.id, info); return info; }
+    const proceeds = tradeProceeds(t);
+    const qsum = legs.reduce((s, l) => s + l.qty, 0);
+    for (const l of legs) {
+      const p = l.position, share = qsum ? l.qty / qsum : 1;
+      l.proceeds = proceeds * share; l.realized = l.proceeds - l.cost_out; l.time = ms(t.time_aest); l.trade = t;
+      if (!p.sells.includes(t)) p.sells.push(t);
+      p.remaining_cost -= l.cost_out; p.qty -= l.qty; p.proceeds += l.proceeds; p.realized += l.realized; p.fees += (t.fee_sol || 0) * share;
+      if (l.crossed) { p.crossed = true; p.crossed_sells.push({ trade: t, qty: l.qty, realized: l.realized, seller: g }); }
+      if (!p.lots.length || p.qty <= Math.max(EPS_QTY, p.bought_qty * 1e-9)) {
+        p.qty = 0; p.remaining_cost = 0; p.lots = []; p.closed = true; p.close_time = ms(t.time_aest);
+        this.open.delete(`${t.mint}|${p.trader}`);
       }
     }
+    const costOut = legs.reduce((s, l) => s + l.cost_out, 0), realized = proceeds - costOut;
+    const info = { position: legs[0].position, legs, group: g, crossed: legs.some((l) => l.crossed), realized, cost_out: costOut, pnl_pct: costOut ? (realized / costOut) * 100 : null, exit_x: costOut ? proceeds / costOut : null };
+    this.rowInfo.set(t.id, info);
+    return info;
   }
-  for (const p of all) {
+}
+
+export function buildPositions(trades) {
+  const L = new Ledger();
+  for (const t of trades) L.apply(t);
+  for (const p of L.all) {
     p.entry_price = p.bought_qty ? p.cost_in / p.bought_qty : null; // SOL per token incl. fees
-    p.sold_frac = p.bought_qty ? sum(p.sells.map((s) => s.tokens)) / p.bought_qty : 0;
+    p.sold_frac = p.bought_qty ? Math.min(1, (p.bought_qty - p.qty) / p.bought_qty) : 0;
+    if (p.closed) p.sold_frac = 1;
     const lastBuy = p.buys[p.buys.length - 1];
-    p.planned_targets = lastBuy.planned_targets || (p.run === "real" ? REAL_RULES : null);
+    p.planned_targets = lastBuy.planned_targets || (p.run === "real" && p.trader === "agent" ? REAL_RULES : null);
     const snap = p.buys[0].entry_snapshot || {};
     p.snapshot = snap;
   }
-  return { positions: all, rowInfo };
+  return { positions: L.all, rowInfo: L.rowInfo };
 }
 
 // Mark open positions with live data. marks: mint -> {price_sol, chain_qty?}
@@ -237,6 +303,7 @@ export function groupKey(p, by) {
     case "liquidity": return bucketOf(BUCKETS.liquidity, p.snapshot.liquidity_usd);
     case "age": return bucketOf(BUCKETS.age, p.snapshot.age_hours);
     case "run": return p.run;
+    case "trader": return GROUP_LABEL[p.trader] || p.trader;
     default: return "?";
   }
 }
@@ -284,8 +351,7 @@ export function equityCurve(trades, positionsAll, candlesByMint, livePrices, now
       const r = events[ei].r;
       sol += solDelta(r);
       rent += r.rent_sol || 0;
-      if (r.action === "DEPOSIT") dep += r.sol;
-      if (r.action === "WITHDRAW") dep -= r.sol;
+      dep += depositDelta(r);
       if (r.action === "BUY" || r.action === "SELL") fees += r.fee_sol || 0;
       if (r.action === "BUY") { qty.set(r.mint, (qty.get(r.mint) || 0) + r.tokens); cost.set(r.mint, (cost.get(r.mint) || 0) + tradeCost(r)); }
       if (r.action === "SELL") {
@@ -315,6 +381,79 @@ export function equityCurve(trades, positionsAll, candlesByMint, livePrices, now
   }
   const worst = points.reduce((w, p) => (p.dd < w.dd ? p : w), { dd: 0, dd_pct: 0 });
   return { points, approx, max_dd: worst.dd, max_dd_pct: worst.dd_pct };
+}
+
+// P&L curve of one group (Me or Agent), built from its positions: realized legs
+// plus open lots marked to market (candles, live price at `now`, else at cost ->
+// approx). Same point shape as equityCurve (no deposits: a group has no bank).
+export function pnlCurve(trades, group, candlesByMint, livePrices, now, { maxPoints = 400 } = {}) {
+  const tx = trades.filter((t) => t.action === "BUY" || t.action === "SELL");
+  const mine = (t) => groupOf(t) === group;
+  if (!tx.length) return { points: [], approx: false, max_dd: 0, max_dd_pct: null };
+  const t0 = ms(tx[0].time_aest);
+  const span = Math.max(now - t0, 60e3);
+  const step = Math.max(5 * 60e3, Math.ceil(span / maxPoints / 60e3) * 60e3);
+  const times = new Set();
+  for (let t = t0; t < now; t += step) times.add(t);
+  for (const t of tx) times.add(ms(t.time_aest));
+  times.add(now);
+  const grid = [...times].sort((a, b) => a - b);
+  const L = new Ledger();
+  let ei = 0, realized = 0, fees = 0, approx = false;
+  const points = [];
+  for (const t of grid) {
+    while (ei < tx.length && ms(tx[ei].time_aest) <= t) {
+      const r = tx[ei];
+      const info = L.apply(r);
+      if (mine(r)) fees += r.fee_sol || 0;
+      if (info) for (const l of info.legs) if (l.position.trader === group) realized += l.realized;
+      ei++;
+    }
+    let unreal = 0, ptApprox = false;
+    for (const p of L.open.values()) {
+      if (p.trader !== group || p.qty <= 0) continue;
+      let px = t >= now && livePrices && livePrices[p.mint] != null ? livePrices[p.mint] : priceAt(candlesByMint && candlesByMint[p.mint], t);
+      if (px == null) { px = p.remaining_cost / p.qty; ptApprox = true; }
+      unreal += p.qty * px - p.remaining_cost;
+    }
+    if (ptApprox) approx = true;
+    points.push({ t, pnl: realized + unreal, realized, unrealized: unreal, fees, approx: ptApprox });
+  }
+  let peak = -Infinity;
+  for (const p of points) { peak = Math.max(peak, p.pnl, 0); p.dd = p.pnl - peak; p.dd_pct = null; }
+  const worst = points.reduce((w, p) => (p.dd < w ? p.dd : w), 0);
+  return { points, approx, max_dd: worst, max_dd_pct: null };
+}
+
+// Side-by-side numbers for the Me vs Agent panel. positions: marked positions
+// (all groups); trades: annotated rows in scope.
+export function compareGroups(positions, trades, curves) {
+  const out = {};
+  for (const g of GROUPS) {
+    const pos = positions.filter((p) => p.trader === g);
+    const rows = trades.filter((t) => groupOf(t) === g);
+    const a = aggregates(pos, rows);
+    const closed = pos.filter((p) => p.closed);
+    const open = pos.filter((p) => !p.closed);
+    const unknown = open.filter((p) => p.unrealized == null).length;
+    const swaps = rows.filter((t) => t.action === "BUY" || t.action === "SELL");
+    out[g] = {
+      ...a,
+      trades: swaps.length,
+      buys: swaps.filter((t) => t.action === "BUY").length,
+      sells: swaps.filter((t) => t.action === "SELL").length,
+      realized_sol: sum(pos.map((p) => p.realized)),
+      unrealized_sol: open.length ? sum(open.map((p) => p.unrealized || 0)) : 0,
+      unrealized_unknown: unknown,
+      avg_hold_ms: closed.length ? sum(closed.map((p) => p.close_time - p.open_time)) / closed.length : null,
+      max_dd: curves && curves[g] ? curves[g].max_dd : null,
+      crossed: pos.reduce((n, p) => n + p.crossed_sells.length, 0),
+      crossed_sol: sum(pos.flatMap((p) => p.crossed_sells.map((c) => c.realized))),
+      inferred: rows.filter((t) => t._tsrc === "inferred" || t._tsrc === "manual_override").length,
+    };
+    out[g].total_sol = out[g].realized_sol + out[g].unrealized_sol;
+  }
+  return out;
 }
 
 export function dailyPnl(points) {

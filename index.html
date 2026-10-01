@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Hades Trades · read-only trade tracker</title>
-    <meta name="description" content="Read-only tracker for trades made by Hades, a Solana memecoin assistant bot. Live balances, P&amp;L and rule adherence." />
+    <meta name="description" content="Read-only tracker for trades made by Hades, a Solana memecoin assistant bot, and by hand (Me vs Agent). Live balances, P&amp;L and rule adherence." />
     <meta name="robots" content="noindex" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="manifest.webmanifest" />
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/app.css?v=1" />
+    <link rel="stylesheet" href="css/app.css?v=2" />
   </head>
   <body>
     <div class="glow glow-a" aria-hidden="true"></div>
@@ -27,10 +27,12 @@
             <h1>Hades Trades</h1>
           </div>
         </div>
+        <nav class="seg" id="trader-seg" role="tablist" aria-label="Who traded: All, Me or Agent"></nav>
       </header>
       <section class="panel hdr" id="hdr" aria-label="Wallet summary"><p class="muted">Loading…</p></section>
       <div id="alerts" aria-live="polite"></div>
       <nav class="tabs" id="scope" aria-label="Scope"></nav>
+      <section class="panel" id="compare" aria-label="Me vs Agent"></section>
       <section class="panel" id="positions" aria-label="Open positions"></section>
       <section class="panel" id="rules" aria-label="Real-run limits"></section>
       <section class="panel" id="aggs" aria-label="Performance"></section>
@@ -43,6 +45,6 @@
     <footer>
       <p>Strictly read-only: no wallet connection, no keys, no signing. Data: the Hades trade log (<a href="data/trades.json">trades.json</a>, <a href="https://github.com/TimeSnapX/hades-trades/blob/main/docs/SCHEMA.md" target="_blank" rel="noopener">schema</a>), public Solana RPC, Jupiter holdings, DexScreener, GeckoTerminal, CoinGecko/Coinbase. Not financial advice.</p>
     </footer>
-    <script type="module" src="js/app.js?v=2"></script>
+    <script type="module" src="js/app.js?v=3"></script>
   </body>
 </html>

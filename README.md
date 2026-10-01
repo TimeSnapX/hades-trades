@@ -1,7 +1,8 @@
 # Hades Trades
 
-A read-only, phone-first dashboard for the trades made by **Hades**, Jarrad's Solana
-memecoin bot. Wallet: `CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f`
+A read-only, phone-first dashboard for the trades in Jarrad's Solana wallet, split into
+**Agent** (Hades, his memecoin bot) and **Me** (Jarrad trading manually in Phantom), with a
+Me vs Agent comparison. Wallet: `CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f`
 ([GMGN](https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f)).
 
 Live: https://timesnapx.github.io/hades-trades/

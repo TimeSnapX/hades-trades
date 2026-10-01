@@ -26,6 +26,13 @@ node /home/box/hades/add-trade.mjs --validate
 ```
 (Exit code 3 means that tx is already logged. See `--help` and SCHEMA.md.)
 
+Rows default to `trader: agent` (Hades). For trades Jarrad made himself in Phantom:
+```bash
+node /home/box/hades/add-trade.mjs --sync-unlogged          # adds all unlogged wallet txs as human/inferred
+node /home/box/hades/add-trade.mjs --apply-overrides hades-trader-overrides.json   # dashboard export
+```
+(`--sync-unlogged` exits 2 if some txs could not be parsed; they are listed.)
+
 ## 2. Package (box)
 
 ```bash

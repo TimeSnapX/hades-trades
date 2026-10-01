@@ -18,6 +18,11 @@ export const FILTERS = {
   not_after_pump: ">= 30% below recent high, steady buys",
   rugcheck_no_warnings: "RugCheck shows no warnings",
 };
+// Who made the trade (Me vs Agent). Missing trader: BUY/SELL rows count as
+// "agent" (logged by Hades), DEPOSIT/WITHDRAW as "human".
+export const TRADERS = ["agent", "human"];
+export const TRADER_SOURCES = ["logged", "inferred", "manual_override"];
+export function defaultTrader(t) { return t && (t.action === "DEPOSIT" || t.action === "WITHDRAW") ? "human" : "agent"; }
 export const SNAPSHOT_NUMS = ["liquidity_usd", "volume24h_usd", "age_hours", "top10_pct", "rugcheck_score"];
 
 const B58 = /^[1-9A-HJ-NP-Za-km-z]+$/;
@@ -114,6 +119,29 @@ export function validateTrade(t) {
   } else if (t.exit_reason !== null) e.push("exit_reason must be null unless action is SELL");
   if (t.action === "BUY") e.push(...validatePlanned(t.planned_targets));
   else if (t.planned_targets !== null) e.push("planned_targets must be null unless action is BUY");
+  if ("trader" in t && !TRADERS.includes(t.trader)) e.push(`trader must be one of ${TRADERS.join("|")}`);
+  if ("trader_source" in t && !TRADER_SOURCES.includes(t.trader_source)) e.push(`trader_source must be one of ${TRADER_SOURCES.join("|")}`);
+  if ("trader_source" in t && !("trader" in t)) e.push("trader_source needs trader");
+  if ("linked_txs" in t) {
+    if (!Array.isArray(t.linked_txs) || !t.linked_txs.every(isSig)) e.push("linked_txs must be an array of transaction signatures");
+    else if (t.linked_txs.includes(t.tx) || new Set(t.linked_txs).size !== t.linked_txs.length) e.push("linked_txs must not repeat tx or each other");
+  }
+  if ("wallet_sol_delta" in t && !(typeof t.wallet_sol_delta === "number" && Number.isFinite(t.wallet_sol_delta))) e.push("wallet_sol_delta must be a number");
+  if ("proceeds_external" in t && t.proceeds_external !== null) {
+    const x = t.proceeds_external;
+    if (t.action !== "SELL") e.push("proceeds_external is only allowed on SELL rows");
+    if (!x || typeof x !== "object") e.push("proceeds_external must be an object");
+    else {
+      if (typeof x.asset !== "string" || !x.asset) e.push("proceeds_external.asset must be a string");
+      if (!isMint(x.mint)) e.push("proceeds_external.mint must be a mint address");
+      if (!isMint(x.to)) e.push("proceeds_external.to must be an address");
+      if (!(typeof x.amount === "number" && x.amount >= 0)) e.push("proceeds_external.amount must be >= 0");
+      if (!(typeof x.sol_equiv === "number" && x.sol_equiv >= 0)) e.push("proceeds_external.sol_equiv must be >= 0");
+      if (!nonNeg(x.usd_equiv === undefined ? null : x.usd_equiv)) e.push("proceeds_external.usd_equiv must be >= 0 or null");
+      if (typeof t.wallet_sol_delta !== "number") e.push("wallet_sol_delta is required with proceeds_external");
+      else if (typeof t.sol === "number" && Math.abs(t.sol - x.sol_equiv - t.wallet_sol_delta) > 2e-9) e.push("sol must equal proceeds_external.sol_equiv + wallet_sol_delta");
+    }
+  }
   if ("unverified" in t && !(Array.isArray(t.unverified) && t.unverified.every((x) => typeof x === "string"))) e.push("unverified must be an array of field names");
   if ("fee_breakdown" in t && t.fee_breakdown !== null) {
     const f = t.fee_breakdown;
@@ -133,8 +161,11 @@ export function validateDoc(doc) {
   doc.trades.forEach((t, i) => {
     for (const m of validateTrade(t)) e.push(`trades[${i}] (${t && t.id}): ${m}`);
     if (t && ids.has(t.id)) e.push(`trades[${i}]: duplicate id ${t.id}`);
-    if (t && txs.has(t.tx)) e.push(`trades[${i}]: duplicate tx ${t.tx}`);
-    if (t) { ids.add(t.id); txs.add(t.tx); }
+    for (const s of t ? [t.tx, ...(Array.isArray(t.linked_txs) ? t.linked_txs : [])] : []) {
+      if (txs.has(s)) e.push(`trades[${i}]: duplicate tx ${s}`);
+      txs.add(s);
+    }
+    if (t) ids.add(t.id);
   });
   for (let i = 1; i < doc.trades.length; i++) {
     if (Date.parse(doc.trades[i].time_aest) < Date.parse(doc.trades[i - 1].time_aest)) { e.push("trades must be sorted by time_aest ascending"); break; }
@@ -146,3 +177,7 @@ export function validateDoc(doc) {
 export function sortTrades(trades) {
   return [...trades].sort((a, b) => Date.parse(a.time_aest) - Date.parse(b.time_aest) || (a.tx < b.tx ? -1 : a.tx > b.tx ? 1 : 0));
 }
+
+// Every signature a row accounts for (its tx plus linked_txs).
+export function rowTxs(t) { return t ? [t.tx, ...(Array.isArray(t.linked_txs) ? t.linked_txs : [])] : []; }
+export function loggedTxSet(trades) { return new Set((trades || []).flatMap(rowTxs)); }

@@ -23,7 +23,8 @@ const T22 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const mint = (k) => (k + "mint").padEnd(44, "1");
 const SI_SIG = "3knvAmdYnSjuHe3mPXZ6L9DeSm2ZCHbUEapBbQSKrMRLe9Z6RW7J9cervpYzttV7pojWjj2VubAn4b1mh5Y5xFfy";
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type" };
-const PRICES = { AAA: 0.0002, BBB: 0.0002, CCC: 0.0002, DDD: 0.0015, EEE: 0.0001, FFF: 0.0001, GGG: 0.0003 };
+const PRICES = { AAA: 0.0002, BBB: 0.0002, CCC: 0.0002, DDD: 0.0015, EEE: 0.0001, FFF: 0.0001, GGG: 0.0003, XXX: 0.0002, YYY: 0.0002, ZZZ: 0.0015, WWW: 0.0005 };
+const sig = (k) => ("Mock" + k).replace(/[0OIl]/g, "x").padEnd(88, "1");
 
 let passed = 0;
 const results = [];
@@ -38,7 +39,7 @@ function mocks(target, o) {
   const preflight = (route) => route.request().method() === "OPTIONS" && (route.fulfill({ status: 204, headers: CORS }), true);
   const doc = JSON.parse(fx(o.fixture));
   return Promise.all([
-    target.route("**/hades-trades/data/trades.json*", (r) => r.fulfill({ status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(doc) })),
+    target.route("**/hades-trades/data/trades.json*", async (r) => { if (o.slowData) await new Promise((res) => setTimeout(res, o.slowData)); return r.fulfill({ status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(doc) }); }),
     target.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.fulfill({ status: 200, headers: { ...CORS, "content-type": "text/css" }, body: "" })),
     target.route(/solana-rpc\.publicnode\.com|rpc\.solanatracker\.io|api\.mainnet-beta\.solana\.com/, (route) => {
       if (preflight(route)) return;
@@ -161,7 +162,19 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || "/
     await page.click("#cur-toggle");
     assert.equal(await text(page, '[data-k="total"]'), "1.6400 SOL");
   });
-  await check("A open position DDD: cost, value, x, MFE/MAE, progress, hint", async () => {
+  await check("A unlogged live buy defaults to Me (inferred) and shows under Me immediately", async () => {
+    assert.equal(await attr(page, '[data-trader="all"]', "aria-selected"), "true");
+    await page.click('[data-trader="human"]');
+    assert.equal(await attr(page, '[data-trader="human"]', "aria-selected"), "true");
+    assert.equal(await count(page, "details.trade"), 3, "2 deposits + live SI buy");
+    assert.equal(await attr(page, `details.trade[data-tx="${SI_SIG}"] .who`, "data-who"), "human");
+    assert.equal(await attr(page, `details.trade[data-tx="${SI_SIG}"] .who`, "data-tsrc"), "inferred");
+    assert.equal(await count(page, "#positions article.pos"), 1, "SI open under Me");
+    assert.equal(await text(page, '[data-cmp="human-trades"]'), "1");
+    assert.equal(await text(page, '[data-cmp="agent-trades"]'), "8");
+    await page.click('[data-trader="agent"]');
+  });
+  await check("A open position DDD (Agent): cost, value, x, MFE/MAE, progress, hint", async () => {
     assert.equal(await count(page, "#positions article.pos"), 1);
     const c = '[data-pos="DDD"]';
     assert.equal(await text(page, `${c} [data-k="x"]`), "1.50x");
@@ -187,7 +200,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || "/
     assert.match(await sub("avg-win"), /\+32\.5%/);
     assert.match(await sub("avg-loss"), /-40\.0%/);
     assert.match(await sub("expectancy"), /\+8\.3% · avg \+0\.24R/);
-    assert.match(await sub("maxdd"), /-3\.6% of peak equity/);
+    assert.match(await sub("maxdd"), /on this group's P&L curve/);
     assert.match(await sub("maxdd"), /closed-only -0\.0400/);
     assert.match(await sub("streak"), /longest: 1 W \/ 1 L/);
     assert.match(await sub("fees"), /7\.9% of \|net P&L\|/);
@@ -208,16 +221,22 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || "/
     assert.equal(await row("AAA", "mfe"), "n/a");
     assert.equal(await row("CCC", "fees"), "0.004000");
   });
+  await check("A All: wallet drawdown % and fees include the live Me row", async () => {
+    await page.click('[data-trader="all"]');
+    assert.match(await page.$eval('[data-k="maxdd"]', (e) => e.nextElementSibling.textContent), /-3\.6% of peak equity/);
+    assert.equal(await text(page, '[data-k="fees"]'), "0.0119 SOL");
+    assert.equal(await text(page, '[data-k="maxdd"]'), "-0.0400 SOL");
+  });
   await check("A history filters (run / token / win-loss / action) + tx links + slippage", async () => {
-    assert.equal(await count(page, "details.trade"), 10);
+    assert.equal(await count(page, "details.trade"), 11);
     await page.selectOption("#f-token", "CCC"); assert.equal(await count(page, "details.trade"), 3);
     await page.selectOption("#f-token", "all");
     await page.selectOption("#f-outcome", "loss"); assert.equal(await count(page, "details.trade"), 2);
     await page.selectOption("#f-outcome", "win"); assert.equal(await count(page, "details.trade"), 5);
-    await page.selectOption("#f-outcome", "open"); assert.equal(await count(page, "details.trade"), 1);
+    await page.selectOption("#f-outcome", "open"); assert.equal(await count(page, "details.trade"), 2);
     await page.selectOption("#f-outcome", "all");
     await page.selectOption("#f-run", "real"); assert.equal(await count(page, "details.trade"), 5);
-    await page.selectOption("#f-run", "test"); assert.equal(await count(page, "details.trade"), 5);
+    await page.selectOption("#f-run", "test"); assert.equal(await count(page, "details.trade"), 6);
     await page.selectOption("#f-run", "all");
     await page.selectOption("#f-action", "DEPOSIT"); assert.equal(await count(page, "details.trade"), 2);
     await page.selectOption("#f-action", "all");
@@ -255,7 +274,8 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || "/
     assert.equal(await attr(page, '[data-rule="weekly"]', "data-level"), "grey");
     await page.uncheck("#preview");
   });
-  await check("A rule adherence: entry filters, exits, if-rules-followed", async () => {
+  await check("A rule adherence (Agent): entry filters, exits, if-rules-followed", async () => {
+    await page.click('[data-trader="agent"]');
     assert.equal(await text(page, '[data-k="entry-pass"]'), "50%");
     assert.equal(await text(page, '[data-k="exit-issues"]'), "2 late · 0 early");
     assert.equal(await text(page, '[data-k="if-rules"]'), "+0.0495 SOL");
@@ -273,10 +293,13 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || "/
     assert.match(await text(page, '[data-bd="liquidity"] tr[data-row="< $50k"]'), /^< \$50k 1 1 0%/);
     assert.match(await text(page, '[data-bd="age"] tr[data-row="12 h-3 d"]'), /^12 h-3 d 2 2 100% \+0\.1300/);
     assert.match(await text(page, '[data-bd="hour"] tr[data-row="20:00"]'), /^20:00 1 1 0%/);
+    assert.match(await text(page, '[data-bd="trader"] tr[data-row="Agent"]'), /^Agent 4 3 67%/);
+    await page.click('[data-trader="all"]');
   });
   await check("A unlogged on-chain activity detected and decoded (failed tx ignored)", async () => {
     assert.equal(await count(page, "[data-unlogged]"), 1);
     assert.match(await text(page, `[data-unlogged="${SI_SIG}"]`), /BUY 7Wh6rx… -0\.1016 SOL · 85,212\.77 tokens/);
+    assert.equal(await attr(page, `[data-unlogged="${SI_SIG}"] .who`, "data-who"), "human");
   });
   await check("A rate-limit fallback: signatures fetched from the second RPC", async () => {
     assert.ok(A.calls.includes("rpc.solanatracker.io getSignaturesForAddress"), A.calls.join(", "));
@@ -310,6 +333,102 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || "/
     await p2.close();
   });
   await A.ctx.close();
+}
+
+// ---------------- Scenario M: Me vs Agent (mock-c, hand-checked in tests/unit.mjs) ----------------
+{
+  const M = await openPage(browser, { fixture: "mock-c.json", now: "2026-10-07T13:00:00+10:00", sol: 0.92, holdings: [{ token: "ZZZ", amount: 100, lamports: 0 }, { token: "WWW", amount: 100, lamports: 0 }] });
+  const { page } = M;
+  await page.screenshot({ path: path.join(SHOTS, "m-compare.png"), fullPage: true });
+  await check("M All: wallet P&L = Me + Agent; 9 rows; 2 open", async () => {
+    assert.equal(await text(page, '[data-k="total-sol"]'), "1.1200 SOL");
+    assert.equal(await text(page, '[data-k="pnl-sol"]'), "+0.1200");
+    assert.equal(await count(page, "details.trade"), 9);
+    assert.equal(await count(page, "#positions article.pos"), 2);
+    assert.equal(await text(page, '[data-k="win-rate"]'), "66.7%");
+  });
+  await check("M toggle Me: every panel filters (header, positions, history, stats, breakdowns, closed table)", async () => {
+    await page.click('[data-trader="human"]');
+    assert.equal(await text(page, '[data-k="group-head"] [data-k="pnl-sol"]'), "0.0000");
+    assert.equal(await text(page, '[data-k="g-realized"]'), "+0.0500");
+    assert.equal(await text(page, '[data-k="g-unrealized"]'), "-0.0500");
+    assert.equal(await text(page, '[data-k="g-fees"]'), "0.005000 SOL");
+    assert.equal(await count(page, "details.trade"), 6);
+    assert.deepEqual(await page.$$eval("details.trade", (l) => [...new Set(l.map((e) => e.dataset.trader))]), ["human"]);
+    assert.equal(await count(page, "#positions article.pos"), 1); assert.ok(await page.$('[data-pos="WWW"]'));
+    assert.equal(await text(page, '[data-k="win-rate"]'), "50.0%");
+    assert.equal(await text(page, '[data-k="pf"]'), "2.00");
+    assert.equal(await text(page, '[data-k="maxdd"]'), "-0.1000 SOL");
+    assert.equal(await text(page, '[data-k="fees"]'), "0.005000 SOL");
+    assert.deepEqual(await page.$$eval("#closed tr[data-position]", (l) => [...new Set(l.map((e) => e.dataset.trader))]), ["human"]);
+    assert.equal(await count(page, '[data-bd="token"] tbody tr'), 3);
+    assert.match(await text(page, '[data-rule="buys"]'), /3\/2: over the daily limit n = 3/, "Me: hxb, hyb, hwb today");
+  });
+  await check("M toggle Agent + persisted across reload", async () => {
+    await page.click('[data-trader="agent"]');
+    assert.equal(await text(page, '[data-k="group-head"] [data-k="pnl-sol"]'), "+0.1200");
+    assert.equal(await count(page, "details.trade"), 3);
+    assert.ok(await page.$('[data-pos="ZZZ"]')); assert.equal(await count(page, "#positions article.pos"), 1);
+    assert.equal(await text(page, '[data-k="win-rate"]'), "100.0%");
+    assert.equal(await text(page, '[data-k="maxdd"]'), "-0.0300 SOL");
+    await page.reload(); await page.waitForSelector('body[data-ready="live"]'); await page.waitForTimeout(400);
+    assert.equal(await attr(page, '[data-trader="agent"]', "aria-selected"), "true");
+    assert.equal(await count(page, "details.trade"), 3);
+    await page.click('[data-trader="all"]');
+  });
+  await check("M Me vs Agent panel: hand-checked numbers, AUD, equity overlay, n= and too-few notes", async () => {
+    const v = (k) => text(page, `[data-cmp="${k}"]`);
+    const sub = (k) => page.$eval(`[data-cmp="${k}"]`, (e) => e.nextElementSibling.textContent);
+    assert.equal(await v("human-trades"), "5"); assert.equal(await v("agent-trades"), "3");
+    assert.equal(await v("human-win-rate"), "50.0%"); assert.equal(await v("agent-win-rate"), "100.0%");
+    assert.equal(await v("human-realized"), "+0.0500"); assert.equal(await sub("human-realized"), "+A$7.50");
+    assert.equal(await v("agent-realized"), "+0.0700"); assert.equal(await sub("agent-realized"), "+A$10.50");
+    assert.equal(await v("human-unrealized"), "-0.0500"); assert.match(await sub("human-unrealized"), /^-A\$7\.50/);
+    assert.equal(await v("agent-unrealized"), "+0.0500"); assert.match(await sub("agent-unrealized"), /^\+A\$7\.50/);
+    assert.equal(await v("human-pf"), "2.00"); assert.equal(await v("agent-pf"), "∞");
+    assert.equal(await v("human-expectancy"), "+0.0250"); assert.equal(await v("agent-expectancy"), "+0.0700");
+    assert.equal(await v("human-hold"), "30 m"); assert.equal(await v("agent-hold"), "1 h 30 m");
+    assert.equal(await v("human-maxdd"), "-0.1000"); assert.equal(await v("agent-maxdd"), "-0.0300");
+    assert.equal(await v("human-fees"), "0.005000"); assert.equal(await v("agent-fees"), "0.003000");
+    assert.equal(await v("human-crossed"), "0"); assert.equal(await v("agent-crossed"), "1");
+    assert.equal(await count(page, 'svg[data-chart="compare-equity"] path'), 2);
+    assert.ok(await page.$('#compare [data-few="human"]')); assert.ok(await page.$('#compare [data-few="agent"]'));
+    assert.equal(await count(page, "#compare [data-n]"), 2);
+  });
+  await check("M badges + crossed sell shown", async () => {
+    assert.equal(await attr(page, '[data-trade="hxb"] .who', "data-tsrc"), "inferred");
+    assert.match(await text(page, '[data-trade="hxb"] .who'), /Me ?\?/);
+    assert.equal(await attr(page, '[data-trade="axb"] .who', "data-who"), "agent");
+    assert.equal(await attr(page, '[data-trade="axb"] .who', "data-tsrc"), "logged");
+    assert.match(await text(page, '[data-trade="hxs"] [data-k="crossed"]'), /500 from Agent's bag/);
+    assert.ok(await page.$('#closed tr[data-position="XXX"][data-trader="agent"] .tag.crossed'));
+    assert.match(await text(page, '[data-trade="hxs"] [data-k="leg-pnl"]'), /\+0\.2000 SOL/);
+  });
+  await check("M local override: Mark as Agent, persisted in ht-trader-overrides, export, reset", async () => {
+    await page.click('[data-trade="hys"] summary');
+    await page.click('[data-override-for="' + sig("hys") + '"] [data-mark="agent"]');
+    assert.equal(await page.evaluate(() => localStorage.getItem("ht-trader-overrides")), JSON.stringify({ [sig("hys")]: "agent" }));
+    assert.equal(await attr(page, '[data-trade="hys"]', "open"), "", "detail stays open");
+    assert.equal(await attr(page, '[data-trade="hys"] summary .who', "data-who"), "agent");
+    assert.equal(await attr(page, '[data-trade="hys"] summary .who', "data-tsrc"), "manual_override");
+    assert.equal(await text(page, '[data-cmp="human-trades"]'), "4"); assert.equal(await text(page, '[data-cmp="agent-trades"]'), "4");
+    assert.equal(await text(page, '[data-cmp="human-crossed"]'), "1");
+    const json = JSON.parse(await page.$eval('[data-k="overrides-json"]', (e) => e.value));
+    assert.deepEqual(json.overrides, [{ tx: sig("hys"), trader: "agent", id: "hys", was: "human" }]);
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#export-overrides")]);
+    assert.equal(dl.suggestedFilename(), "hades-trader-overrides.json");
+    const body = JSON.parse(fs.readFileSync(await dl.path(), "utf8")); assert.equal(body.overrides[0].trader, "agent"); assert.equal(body.schema, "ht-trader-overrides/1");
+    await page.reload(); await page.waitForSelector('body[data-ready="live"]'); await page.waitForTimeout(400);
+    assert.equal(await attr(page, '[data-trade="hys"] summary .who', "data-who"), "agent", "persisted after reload");
+    await page.click('[data-trade="hys"] summary');
+    await page.click('[data-override-for="' + sig("hys") + '"] [data-mark="reset"]');
+    assert.equal(await page.evaluate(() => localStorage.getItem("ht-trader-overrides")), "{}");
+    assert.equal(await text(page, '[data-cmp="human-trades"]'), "5");
+    await page.click('[data-override-for="' + sig("hys") + '"] [data-mark="human"]').catch(() => {}); // disabled: no-op
+    assert.equal(await page.evaluate(() => localStorage.getItem("ht-trader-overrides")), "{}");
+  });
+  await check("M no console errors / page errors", async () => { assert.deepEqual(M.pageErrors, []); assert.deepEqual(M.consoleErrors, []); });
+  await M.ctx.close();
 }
 
 // ---------------- Scenario B: Jupiter fallback + all-red limits ----------------
@@ -390,6 +509,23 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || "/
   });
   await check("D no console errors with the service worker", async () => { assert.deepEqual(D.pageErrors, []); assert.deepEqual(D.consoleErrors, []); });
   await D.ctx.close();
+}
+// Service worker must register before (and independent of) data loading.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, serviceWorkers: "allow", timezoneId: "Australia/Brisbane" });
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on("pageerror", (e) => errs.push(e.message));
+  page.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
+  await mocks(ctx, { fixture: "mock-c.json", sol: 0.92, holdings: [], slowData: 6000 });
+  await page.goto(BASE);
+  await check("D2 service worker registers first, while trades.json is still loading", async () => {
+    const r = await page.evaluate(async () => { for (let i = 0; i < 40; i++) { const reg = await navigator.serviceWorker.getRegistration(); if (reg) return { reg: true, ready: document.body.dataset.ready || null }; await new Promise((res) => setTimeout(res, 100)); } return { reg: false }; });
+    assert.equal(r.reg, true); assert.equal(r.ready, null, "data not loaded yet");
+    await page.waitForSelector('body[data-ready="live"]', { timeout: 20000 });
+    assert.deepEqual(errs, []);
+  });
+  await ctx.close();
 }
 
 await browser.close();

@@ -30,11 +30,15 @@ const out = {
   positions: await p.$$eval("#positions article.pos", (l) => l.map((e) => e.querySelector("b").textContent + " " + e.querySelector('[data-k="x"]').textContent)),
   unlogged: await p.$$eval("[data-unlogged]", (l) => l.map((e) => e.innerText.replace(/\s+/g, " "))),
   charts: await p.$$eval("svg[data-chart]", (l) => l.map((e) => e.dataset.chart)),
+  compare: await p.$$eval("#compare [data-cmp]", (l) => Object.fromEntries(l.map((e) => [e.dataset.cmp, e.textContent.trim() + (e.nextElementSibling ? " (" + e.nextElementSibling.textContent.trim() + ")" : "")]))),
+  badges: await p.$$eval("details.trade .who", (l) => l.reduce((m, e) => { const k = e.dataset.who + "/" + e.dataset.tsrc; m[k] = (m[k] || 0) + 1; return m; }, {})),
+  traderSeg: await p.$$eval("[data-trader]", (l) => l.filter((e) => e.tagName === "BUTTON").map((e) => e.dataset.trader)),
+  swRegistered: process.env.SW ? await p.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())) : "blocked",
   chips, appErrors, netErrors,
 };
 await p.screenshot({ path: process.env.SHOT || "/tmp/hades-live.png", fullPage: false });
 console.log(JSON.stringify(out, null, 2));
 await b.close(); if (server) server.close();
-const ok = appErrors.length === 0 && /SOL$/.test(out.total || "") && out.positions.length > 0 && out.charts.length >= 6;
+const ok = appErrors.length === 0 && /SOL$/.test(out.total || "") && out.positions.length > 0 && out.charts.length >= 6 && Object.keys(out.compare).length >= 20 && out.traderSeg.length === 3;
 console.log(ok ? "LIVE SMOKE OK" : "LIVE SMOKE FAILED");
 process.exit(ok ? 0 : 1);

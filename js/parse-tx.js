@@ -9,6 +9,43 @@ export const TOKEN_PROGRAMS = [
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
 ];
 const SYSTEM = "11111111111111111111111111111111";
+// USD stablecoins a Phantom sell can settle into (proceeds paid to another account).
+export const STABLES = {
+  CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH: "CASH",
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
+  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: "USDT",
+  "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo": "PYUSD",
+};
+
+// ---- ed25519 on-curve check (PDAs, e.g. pool vault authorities, are off-curve;
+// user wallets are on-curve). Used to tell a payout wallet from a pool account.
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+export function b58decode(s) {
+  let n = 0n;
+  for (const c of s) { const i = B58.indexOf(c); if (i < 0) throw new Error("bad base58"); n = n * 58n + BigInt(i); }
+  const out = [];
+  while (n > 0n) { out.unshift(Number(n & 255n)); n >>= 8n; }
+  for (const c of s) { if (c !== "1") break; out.unshift(0); }
+  return Uint8Array.from(out);
+}
+const P25519 = 2n ** 255n - 19n;
+const modp = (a) => ((a % P25519) + P25519) % P25519;
+function powmod(b, e) { let r = 1n; b = modp(b); while (e > 0n) { if (e & 1n) r = (r * b) % P25519; b = (b * b) % P25519; e >>= 1n; } return r; }
+const D25519 = modp(-121665n * powmod(121666n, P25519 - 2n));
+export function isOnCurve(address) {
+  let bytes;
+  try { bytes = b58decode(address); } catch { return false; }
+  if (bytes.length !== 32) return false;
+  let y = 0n;
+  for (let i = 31; i >= 0; i--) y = (y << 8n) | BigInt(i === 31 ? bytes[i] & 0x7f : bytes[i]);
+  const sign = bytes[31] >> 7;
+  if (y >= P25519) return false;
+  const y2 = (y * y) % P25519;
+  const u = modp(y2 - 1n), v = modp(D25519 * y2 + 1n);
+  const x2 = (u * powmod(v, P25519 - 2n)) % P25519;
+  if (x2 === 0n) return sign === 0;
+  return powmod(x2, (P25519 - 1n) / 2n) === 1n;
+}
 // Phantom's swap fee is 0.85% of the swap. Fees are detected by that pattern.
 export const PLATFORM_FEE_RATE = 0.0085;
 
@@ -93,6 +130,9 @@ export function parseTx(tx, wallet) {
     rent += BigInt(meta.postBalances[idx]) - BigInt(meta.preBalances[idx]);
   }
   const changed = [...byMint].filter(([, m]) => m.raw !== 0n);
+  // Wallet token accounts closed in this tx (listed before, gone after).
+  const postIdx = new Set((meta.postTokenBalances || []).filter((b) => b.owner === wallet).map((b) => b.accountIndex));
+  const closedMints = [...new Set([...owned].filter(([idx, e]) => !postIdx.has(idx) && e.mint !== WSOL).map(([, e]) => e.mint))];
 
   // SOL flows (system transfers, WSOL token transfers).
   const flows = [];
@@ -125,6 +165,8 @@ export function parseTx(tx, wallet) {
   } else if (changed.length === 0) {
     if (solDelta > 0n && !payer) action = "DEPOSIT";
     else if (solDelta < 0n && flows.some((f) => f.top && f.src === wallet && !walletAccounts.has(f.dst))) action = "WITHDRAW";
+    // SOL sent out through a program (e.g. a Relay bridge deposit_native): an inner transfer.
+    else if (solDelta < 0n && payer && flows.some((f) => !f.top && f.src === wallet && !walletAccounts.has(f.dst)) && flows.filter((f) => f.src === wallet && !walletAccounts.has(f.dst)).reduce((a, f) => a + f.lamports, 0n) * 10n >= -solDelta * 9n) action = "WITHDRAW";
   } else {
     kind = "MULTI_TOKEN";
   }
@@ -153,6 +195,26 @@ export function parseTx(tx, wallet) {
     }
     for (const f of flows) if (!f.top && fromWallet(f) && feeDst.has(f.dst)) platform += f.lamports;
     platformDetected = feeDst.size > 0;
+  }
+
+  // A token leaving the wallet while a USD stablecoin lands in another (on-curve)
+  // wallet in the same tx: a sell whose proceeds were paid to another account.
+  let externalProceeds = null;
+  if (kind === "TOKEN_OUT") {
+    const acc = new Map();
+    const add = (b, which) => {
+      if (!(b.mint in STABLES) || b.owner === wallet) return;
+      const e = acc.get(b.accountIndex) || { owner: b.owner, mint: b.mint, decimals: b.uiTokenAmount.decimals, pre: 0n, post: 0n };
+      e[which] = BigInt(b.uiTokenAmount.amount);
+      acc.set(b.accountIndex, e);
+    };
+    (meta.preTokenBalances || []).forEach((b) => add(b, "pre"));
+    (meta.postTokenBalances || []).forEach((b) => add(b, "post"));
+    const cands = [...acc.values()].filter((e) => e.post > e.pre && isOnCurve(e.owner)).sort((a, b) => (b.post - b.pre > a.post - a.pre ? 1 : -1));
+    if (cands.length) {
+      const c = cands[0];
+      externalProceeds = { asset: STABLES[c.mint], mint: c.mint, amount: rawToUi(c.post - c.pre, c.decimals), to: c.owner };
+    }
   }
 
   const sol = solDelta < 0n ? -solDelta : solDelta;
@@ -186,6 +248,70 @@ export function parseTx(tx, wallet) {
     swap_sol: swapLamports == null ? null : lamportsToSol(swapLamports),
     price_filled: swapLamports != null && tokens ? round(lamportsToSol(swapLamports) / tokens, 15) : null,
     counterparty: action === "DEPOSIT" ? (flows.find((f) => f.dst === wallet) || {}).src || null : null,
+    fee_payer: keys[0],
+    closed_mints: closedMints,
+    external_proceeds: externalProceeds,
     unverified,
+  };
+}
+
+// ---- Phantom gas-sponsored sells -------------------------------------------
+// Phantom can sell a token with the proceeds paid out in a stablecoin to another
+// account, sponsoring the gas: (1) a sponsor S lends SOL to the wallet (DEPOSIT
+// from S), (2) the wallet swaps the token with the output sent elsewhere
+// (TOKEN_OUT with external_proceeds), (3) S takes the loan back while the token
+// account is closed (WITHDRAW, fee paid by S). Returns
+// [{main, loanIn, loanOut}] for every TOKEN_OUT with external proceeds; loanIn /
+// loanOut are null when not found within `windowSec`.
+export function findSponsoredSells(drafts, { wallet, windowSec = 120 } = {}) {
+  const sorted = [...drafts].filter((d) => d && d.ok !== false).sort((a, b) => (a.time_unix || 0) - (b.time_unix || 0));
+  const used = new Set();
+  const out = [];
+  for (const m of sorted) {
+    if (m.kind !== "TOKEN_OUT" || !m.external_proceeds) continue;
+    const near = (d) => d !== m && !used.has(d.tx) && Math.abs((d.time_unix || 0) - (m.time_unix || 0)) <= windowSec;
+    const loanOut = sorted.find((d) => near(d) && d.action === "WITHDRAW" && d.fee_payer && d.fee_payer !== wallet && (d.closed_mints || []).includes(m.mint)) || null;
+    const sponsor = loanOut ? loanOut.fee_payer : null;
+    const loanIn = sponsor ? sorted.find((d) => near(d) && d.action === "DEPOSIT" && d.counterparty === sponsor && (d.time_unix || 0) <= (m.time_unix || 0)) || null : null;
+    used.add(m.tx); if (loanOut) used.add(loanOut.tx); if (loanIn) used.add(loanIn.tx);
+    out.push({ main: m, loanIn, loanOut });
+  }
+  return out;
+}
+
+// Chain-derived fields of the SELL row for a sponsored sell (see SCHEMA.md,
+// proceeds_external). solUsd: SOL/USD at the time (stablecoin taken as 1 USD).
+//   wallet_sol_delta = exact net SOL change of the wallet across the bundle
+//   sol              = SOL value of the external proceeds + wallet_sol_delta
+//   rent_sol         = token-account rent change across the bundle (closed: < 0)
+export function sponsoredSellFields(bundle, solUsd) {
+  const { main, loanIn, loanOut } = bundle;
+  const parts = [loanIn, main, loanOut].filter(Boolean);
+  const lam = (x) => BigInt(Math.round(x * LAMPORTS));
+  const w = parts.reduce((a, d) => a + lam(d.sol_delta), 0n);
+  const rent = parts.reduce((a, d) => a + lam(d.rent_sol), 0n);
+  const ext = main.external_proceeds;
+  const usd = ext.amount; // USD stablecoin
+  const solEquiv = solUsd ? round(usd / solUsd, 9) : null;
+  const walletSol = lamportsToSol(w);
+  const sol = solEquiv == null ? null : round(solEquiv + walletSol, 9);
+  const network = parts.filter((d) => d.fee_payer === main.fee_payer).reduce((a, d) => a + lam(d.fee_breakdown.network_sol), 0n);
+  return {
+    tx: main.tx,
+    time_aest: main.time_aest,
+    time_unix: main.time_unix,
+    action: "SELL",
+    mint: main.mint,
+    tokens: main.tokens,
+    token_program: main.token_program,
+    sol,
+    wallet_sol_delta: walletSol,
+    rent_sol: lamportsToSol(rent),
+    fee_sol: lamportsToSol(network),
+    fee_breakdown: { network_sol: lamportsToSol(network), tip_sol: 0, platform_sol: null },
+    price_filled: solEquiv != null && main.tokens ? round(solEquiv / main.tokens, 15) : null,
+    linked_txs: [loanIn, loanOut].filter(Boolean).map((d) => d.tx),
+    proceeds_external: { asset: ext.asset, mint: ext.mint, amount: ext.amount, to: ext.to, usd_equiv: usd, sol_equiv: solEquiv },
+    complete: !!(loanIn && loanOut) || (!loanIn && !loanOut),
   };
 }

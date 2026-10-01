@@ -1,6 +1,6 @@
 // Hades Trades: keyless live data with fallbacks, caching and rate-limit handling.
 // Read-only: only public GET/POST JSON-RPC reads. No wallet connection, no keys.
-import { TOKEN_PROGRAMS, WSOL } from "./parse-tx.js";
+import { TOKEN_PROGRAMS, WSOL } from "./parse-tx.js?v=3";
 
 // api.mainnet-beta.solana.com is not listed: it answers 403 to browser origins.
 export const RPCS = ["https://solana-rpc.publicnode.com", "https://rpc.solanatracker.io/public"];

@@ -16,7 +16,8 @@ function row(o) {
     tx: sig(o.id), reason: o.reason ?? `mock ${o.id}`, run: o.run,
     entry_snapshot: o.action === "BUY" ? snapAll(o.snap || {}) : null,
     exit_reason: o.action === "SELL" ? o.exit ?? null : null,
-    planned_targets: o.action === "BUY" ? (o.run === "real" ? REAL : null) : null,
+    planned_targets: o.action === "BUY" ? (o.run === "real" && o.trader !== "human" ? REAL : null) : null,
+    ...(o.trader ? { trader: o.trader, trader_source: o.tsrc || "logged" } : {}),
   };
 }
 const A = [
@@ -39,6 +40,21 @@ const B = [
   row({ id: "sfff", time: "2026-10-08T13:00:00+10:00", action: "SELL", token: "FFF", sol: 0.01, tokens: 100, run: "real", exit: "stop" }),
   row({ id: "bggg", time: "2026-10-08T14:00:00+10:00", action: "BUY", token: "GGG", sol: 0.05, tokens: 100, run: "real" }),
 ];
+// Scenario C (Me vs Agent, hand-checked in tests/unit.mjs and tests/e2e.mjs):
+// a position mixed between the groups (agent buys, human buys more, human sells
+// 1500 = all of his 1000 + 500 "crossed" from the agent's bag, agent sells the
+// rest), a human loss, and one open position per group. Now = 13:00.
+const C = [
+  row({ id: "cd1", time: "2026-10-07T08:00:00+10:00", action: "DEPOSIT", sol: 1.0, usd: 100, run: "real", trader: "human", tsrc: "inferred" }),
+  row({ id: "axb", time: "2026-10-07T09:00:00+10:00", action: "BUY", token: "XXX", sol: 0.1, tokens: 1000, fee: 0.001, run: "real", trader: "agent" }),
+  row({ id: "hxb", time: "2026-10-07T09:30:00+10:00", action: "BUY", token: "XXX", sol: 0.2, tokens: 1000, fee: 0.001, run: "real", trader: "human", tsrc: "inferred" }),
+  row({ id: "hxs", time: "2026-10-07T10:00:00+10:00", action: "SELL", token: "XXX", sol: 0.45, tokens: 1500, fee: 0.001, run: "real", trader: "human", tsrc: "inferred", exit: "manual" }),
+  row({ id: "axs", time: "2026-10-07T10:30:00+10:00", action: "SELL", token: "XXX", sol: 0.02, tokens: 500, fee: 0.001, run: "real", trader: "agent", exit: "stop" }),
+  row({ id: "hyb", time: "2026-10-07T11:00:00+10:00", action: "BUY", token: "YYY", sol: 0.1, tokens: 100, fee: 0.001, run: "real", trader: "human", tsrc: "inferred" }),
+  row({ id: "hys", time: "2026-10-07T11:30:00+10:00", action: "SELL", token: "YYY", sol: 0.05, tokens: 100, fee: 0.001, run: "real", trader: "human", tsrc: "inferred", exit: "manual" }),
+  row({ id: "azb", time: "2026-10-07T12:00:00+10:00", action: "BUY", token: "ZZZ", sol: 0.1, tokens: 100, fee: 0.001, run: "real", trader: "agent" }),
+  row({ id: "hwb", time: "2026-10-07T12:30:00+10:00", action: "BUY", token: "WWW", sol: 0.1, tokens: 100, fee: 0.001, run: "real", trader: "human", tsrc: "inferred" }),
+];
 const doc = (trades) => ({ schema_version: 1, wallet: W, gmgn: `https://gmgn.ai/sol/address/${W}`, real_run_start_aest: "2026-10-06T21:12:00+10:00", updated_aest: "2026-10-07T12:30:00+10:00", trades });
 // DDD candles (SOL per token), 5-minute, 11:00-12:55 AEST on 7 Oct.
 const t0 = Date.parse("2026-10-07T11:00:00+10:00") / 1000;
@@ -54,5 +70,6 @@ for (let i = 0; i < 24; i++) {
 }
 fs.writeFileSync(dir + "mock-a.json", JSON.stringify(doc(A), null, 2) + "\n");
 fs.writeFileSync(dir + "mock-b.json", JSON.stringify(doc(B), null, 2) + "\n");
+fs.writeFileSync(dir + "mock-c.json", JSON.stringify(doc(C), null, 2) + "\n");
 fs.writeFileSync(dir + "ohlcv-ddd.json", JSON.stringify({ data: { attributes: { ohlcv_list: [...candles].reverse() } } }) + "\n");
 console.log("fixtures written");

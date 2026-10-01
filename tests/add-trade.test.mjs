@@ -37,6 +37,7 @@ test("--from-tx BUY (offline, saved tx): exact chain values, snapshot validated 
   assert.deepEqual(t.entry_snapshot.filters_failed, ["volume24h_250k", "top10_lt_25pct"]);
   assert.ok(t.unverified.includes("usd_at_time"), "offline -> usd_at_time unverified");
   assert.equal(t.usd_at_time, null);
+  assert.equal(t.trader, "agent", "Hades' default"); assert.equal(t.trader_source, "logged");
 });
 test("dedupe by tx (exit code 3, file unchanged)", () => {
   const before = fs.readFileSync(file, "utf8");
@@ -87,6 +88,65 @@ test("--dry-run does not write", () => {
   const row = { time_aest: "2026-09-29T21:01:00+10:00", action: "DEPOSIT", token: "SOL", mint: null, sol: 0.02, tokens: null, usd_at_time: null, fee_sol: 0, price_expected: null, price_filled: null, tx: "6".repeat(87), reason: null, run: "test", entry_snapshot: null, exit_reason: null, planned_targets: null };
   assert.match(run(["--dry-run", "--json", JSON.stringify(row)]).out, /DRY RUN/);
   assert.equal(fs.readFileSync(file, "utf8"), before);
+});
+
+// ---- Me vs Agent: --trader, --backfill-trader, --apply-overrides, --sync-unlogged, sponsored sells
+const FN = { in: "SkvD27sFoNyrqb8vQKbBaaerZXehmAx2wmnHnnnpfGEEEtyeZ25wwPdjNQ76insbBHvfnc7CxFxxs7uTgZbFnWG", sell: "5R3vdsp3usSRF3eLgS2Pe1ww3iT1qZtNUYn6iXZa6kabM7oYVVyCwembErH3KbtECJHFYGTPL8pMy5AR7sASVs57", out: "2JkGSEg6c8JvRXGoHAvi9jRhfMZWuRhCLbmQxHSVZvwE3NAFVL8fteGzd3vGXDkdCZAgUghBfzTZh8SUn3vpoacy", buy: "4pewFGCGnLkDFmEWPcTVtu9T3nGaqt6dg95PUuxuRdGMnvXGLMbYJR6dsxsW6PoxBmdqQo91HiNAzK23rmzb1SnH", relay: "3r2MYM7PPj44y56rChwrJB1StJdJrbBBuXAnyMF1m8qSHjmZM4iZ2A9LtE85rkyBSkjiHJdgGHtzfR9tXSsct6jd" };
+test("deposits default to human; --trader human on a swap is 'logged'", () => {
+  const d = doc().trades.find((t) => t.tx === DEP);
+  assert.equal(d.trader, "human"); assert.equal(d.trader_source, "inferred");
+  run(["--from-tx", SI, "--tx-json", FIX("tx-si-buy.json"), "--offline", "--replace", "--trader", "human"]);
+  const t = doc().trades.find((x) => x.tx === SI);
+  assert.equal(t.trader, "human"); assert.equal(t.trader_source, "logged"); assert.equal(t.reason, "updated", "replace keeps fields");
+  assert.match(run(["--from-tx", SI, "--trader", "robot"], false).out, /--trader must be agent or human/);
+});
+test("--backfill-trader fills legacy rows only", () => {
+  const legacy = path.join(dir, "legacy.json");
+  const d = doc(); d.trades = d.trades.map(({ trader, trader_source, ...t }) => t);
+  fs.writeFileSync(legacy, JSON.stringify(d));
+  execFileSync("node", [CLI, "--file", legacy, "--backfill-trader"]);
+  const b = JSON.parse(fs.readFileSync(legacy, "utf8")).trades;
+  assert.deepEqual(b.map((t) => `${t.action}:${t.trader}:${t.trader_source}`).filter((x, i, a) => a.indexOf(x) === i).sort(), ["BUY:agent:logged", "DEPOSIT:human:inferred", "SELL:agent:logged"].filter((x) => b.some((t) => x.startsWith(t.action))).sort());
+});
+test("--apply-overrides merges the app export (manual_override), reports unknown txs", () => {
+  const ov = path.join(dir, "ov.json");
+  fs.writeFileSync(ov, JSON.stringify({ schema: "ht-trader-overrides/1", overrides: [{ tx: SELL, trader: "human" }, { tx: "4".repeat(87), trader: "agent" }] }));
+  const r = run(["--apply-overrides", ov]);
+  assert.match(r.out, /applied 1 override/); assert.match(r.out, /not in the file/);
+  const t = doc().trades.find((x) => x.tx === SELL);
+  assert.equal(t.trader, "human"); assert.equal(t.trader_source, "manual_override");
+  assert.match(run(["--validate"]).out, /OK/);
+});
+test("--from-tx on a Phantom sponsored sell: one SELL row with linked loan txs", () => {
+  const f2 = path.join(dir, "sp.json");
+  const r = execFileSync("node", [CLI, "--file", f2, "--from-tx", FN.sell, "--tx-json", FIX("tx-fundnet-sell.json"), "--linked-tx-json", `${FIX("tx-fundnet-loan-in.json")},${FIX("tx-fundnet-loan-out.json")}`, "--offline", "--sol-usd", "120", "--token", "FUNDNET", "--trader", "human", "--reason", "manual (user)"], { encoding: "utf8" });
+  assert.match(r, /ADDED/);
+  const t = JSON.parse(fs.readFileSync(f2, "utf8")).trades[0];
+  assert.equal(t.action, "SELL"); assert.equal(t.sol, 0.041304375); assert.equal(t.wallet_sol_delta, 0); assert.equal(t.rent_sol, -0.00151384);
+  assert.deepEqual(t.linked_txs, [FN.in, FN.out]); assert.equal(t.proceeds_external.asset, "CASH"); assert.equal(t.proceeds_external.amount, 4.956525);
+  assert.equal(t.trader, "human");
+  // a linked tx can't be logged again on its own
+  const again = (() => { try { execFileSync("node", [CLI, "--file", f2, "--from-tx", FN.in, "--tx-json", FIX("tx-fundnet-loan-in.json"), "--offline"], { encoding: "utf8", stdio: "pipe" }); return 0; } catch (e) { return e.status; } })();
+  assert.equal(again, 3);
+});
+test("--sync-unlogged (offline): unlogged swaps -> human/inferred, bundles merged, bridge out = WITHDRAW", () => {
+  const f3 = path.join(dir, "sync.json");
+  fs.writeFileSync(f3, JSON.stringify({ schema_version: 1, wallet: "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f", gmgn: "x", real_run_start_aest: "2026-10-06T21:12:00+10:00", updated_aest: "2026-10-01T21:00:00+10:00", trades: [] }));
+  const txd = path.join(dir, "txs"); fs.mkdirSync(txd, { recursive: true });
+  const map = { [FN.in]: "tx-fundnet-loan-in.json", [FN.sell]: "tx-fundnet-sell.json", [FN.out]: "tx-fundnet-loan-out.json", [FN.buy]: "tx-fundnet-buy.json", [FN.relay]: "tx-relay-withdraw.json" };
+  for (const [sig, f] of Object.entries(map)) fs.copyFileSync(FIX(f), path.join(txd, `${sig}.json`));
+  const sigs = Object.keys(map).map((signature, i) => ({ signature, blockTime: 1790853540 + i, err: null }));
+  fs.writeFileSync(path.join(dir, "sigs.json"), JSON.stringify(sigs));
+  const args = [CLI, "--file", f3, "--sync-unlogged", "--sigs-json", path.join(dir, "sigs.json"), "--tx-dir", txd, "--offline", "--sol-usd", "120"];
+  const dry = execFileSync("node", [...args, "--dry-run"], { encoding: "utf8" });
+  assert.match(dry, /would add 3 row/); assert.equal(JSON.parse(fs.readFileSync(f3, "utf8")).trades.length, 0);
+  const out = execFileSync("node", args, { encoding: "utf8" });
+  assert.match(out, /added 3 row\(s\), skipped 0/);
+  const t = JSON.parse(fs.readFileSync(f3, "utf8")).trades;
+  assert.deepEqual(t.map((x) => x.action), ["WITHDRAW", "BUY", "SELL"]);
+  assert.ok(t.every((x) => x.trader === "human" && x.trader_source === "inferred" && x.reason === "manual (user)" && x.run === "test"));
+  assert.equal(t[2].exit_reason, "manual"); assert.equal(t[2].linked_txs.length, 2); assert.equal(t[1].planned_targets, null);
+  assert.match(execFileSync("node", args, { encoding: "utf8" }), /0 not in/);
 });
 // concurrent writers (lock): 4 processes at once, all rows must land
 {
