@@ -1,6 +1,6 @@
 // Hades Trades: keyless live data with fallbacks, caching and rate-limit handling.
 // Read-only: only public GET/POST JSON-RPC reads. No wallet connection, no keys.
-import { TOKEN_PROGRAMS, WSOL } from "./parse-tx.js?v=3";
+import { TOKEN_PROGRAMS, WSOL } from "./parse-tx.js?v=4";
 
 // api.mainnet-beta.solana.com is not listed: it answers 403 to browser origins.
 export const RPCS = ["https://solana-rpc.publicnode.com", "https://rpc.solanatracker.io/public"];
@@ -232,6 +232,8 @@ export async function getCandles(pool, mint, fromMs, toMs) {
       let j;
       try { j = await fetchJson(`${GT}${pool}/ohlcv/${tf}?aggregate=${agg}&limit=1000&currency=token&token=${mint}&before_timestamp=${before}`); }
       catch (e) { if (e.status === 429 || e.status === 0) gtCooldownUntil = Date.now() + 90000; throw e; }
+      const meta = j.meta || {}, b = meta.base && meta.base.address, q = meta.quote && meta.quote.address;
+      if (b && q && !((b === mint && q === WSOL) || (q === mint && b === WSOL))) throw new Error(`pool ${pool.slice(0, 6)} is not quoted in SOL (${(meta.base && meta.base.symbol) || "?"}/${(meta.quote && meta.quote.symbol) || "?"})`);
       const list = (j.data && j.data.attributes && j.data.attributes.ohlcv_list) || [];
       if (!list.length) break;
       for (const [t, o, h, l, c] of list) all.push({ t: t * 1000, o: +o, h: +h, l: +l, c: +c });
@@ -245,16 +247,22 @@ export async function getCandles(pool, mint, fromMs, toMs) {
   return r;
 }
 
-// Pool address for OHLCV: remembered from DexScreener; else GeckoTerminal's token pools.
+// Pool address for OHLCV, SOL-quoted pools only (candles must be SOL per token):
+// the SOL pair from DexScreener, else GeckoTerminal's most liquid SOL pool.
+// Returns null when the token has no SOL pool (history then unavailable).
+// Cache key "pool2:" (v4): "pool:" entries could hold non-SOL pools.
 export async function getPool(mint, fromDex) {
-  if (fromDex) { cacheSet(`pool:${mint}`, fromDex); return fromDex; }
-  const c = cacheGet(`pool:${mint}`);
-  if (c && Date.now() - c.t < 7 * 864e5) return c.v;
+  if (fromDex) { cacheSet(`pool2:${mint}`, fromDex); return fromDex; }
+  const c = cacheGet(`pool2:${mint}`);
+  if (c && Date.now() - c.t < (c.v ? 7 * 864e5 : 6 * 3600e3)) return c.v;
   if (gtCooling()) return null;
   try {
     const j = await fetchJson(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}/pools?page=1`);
-    const pools = (Array.isArray(j.data) ? j.data : []).map((d) => ({ addr: d.attributes && d.attributes.address, liq: Number((d.attributes && d.attributes.reserve_in_usd) || 0) })).filter((p) => p.addr).sort((a, b) => b.liq - a.liq);
-    if (pools.length) { cacheSet(`pool:${mint}`, pools[0].addr); return pools[0].addr; }
+    const sid = (d, k) => (d.relationships && d.relationships[k] && d.relationships[k].data && d.relationships[k].data.id) || "";
+    const isSol = (d) => sid(d, "quote_token") === `solana_${WSOL}` || sid(d, "base_token") === `solana_${WSOL}`;
+    const pools = (Array.isArray(j.data) ? j.data : []).filter(isSol).map((d) => ({ addr: d.attributes && d.attributes.address, liq: Number((d.attributes && d.attributes.reserve_in_usd) || 0) })).filter((p) => p.addr).sort((a, b) => b.liq - a.liq);
+    cacheSet(`pool2:${mint}`, pools.length ? pools[0].addr : null);
+    return pools.length ? pools[0].addr : null;
   } catch (e) { if (e.status === 429 || e.status === 0) gtCooldownUntil = Date.now() + 90000; }
   return null;
 }

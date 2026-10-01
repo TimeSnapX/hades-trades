@@ -228,6 +228,53 @@ export function simulateLot({ entry, cost, fromMs, candles, now, rules = REAL_RU
   return { proceeds, openValue, total: proceeds + openValue, pnl: proceeds + openValue - cost, open: frac > 1e-12, events };
 }
 
+// ---- price-history sanity ------------------------------------------------
+// GeckoTerminal candles are only trustworthy for P&L when they are SOL per token.
+// A pool quoted in another asset (e.g. DARK/wNEAR) returns "token" prices in that
+// asset, which can be off by a constant factor (DARK: ~26x). Two guards:
+// 1. unit check: the series' median ratio to the logged fills (and the live price)
+//    must be within UNIT_MISMATCH_X, else the whole series is rejected;
+// 2. point bounds: candles above max known price x PRICE_BOUND_X (fake peaks
+//    make fake drawdowns), or non-positive/non-finite, are dropped. There is no
+//    lower bound: real rugs go to ~0, and a too-low mark can only lose what the
+//    lot cost, which the drawdown guard in pnlCurve caps.
+// Rejected/missing history means the position is held at cost between trades
+// (realized-only for that token), with a note in the UI.
+export const UNIT_MISMATCH_X = 3;
+export const PRICE_BOUND_X = 50;
+const median = (a) => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+function candleNear(cs, t, win) {
+  let lo = 0, hi = cs.length - 1, ans = null;
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (cs[mid].t <= t) { ans = cs[mid]; lo = mid + 1; } else hi = mid - 1; }
+  return ans && t - ans.t <= win ? ans : null;
+}
+export const fillPrice = (t) => (t.price_filled > 0 ? t.price_filled : t.tokens > 0 ? t.sol / t.tokens : null);
+export function sanitizeCandles(trades, candlesByMint, livePrices, now) {
+  const clean = {}, rejected = {}, dropped = {};
+  for (const [mint, cs] of Object.entries(candlesByMint || {})) {
+    if (!Array.isArray(cs) || !cs.length) continue;
+    const fills = trades.filter((t) => t.mint === mint && (t.action === "BUY" || t.action === "SELL") && t.tokens > 0)
+      .map((t) => ({ t: ms(t.time_aest), px: fillPrice(t), token: t.token })).filter((f) => f.px > 0);
+    const live = livePrices && livePrices[mint] > 0 ? livePrices[mint] : null;
+    const anchors = fills.map((f) => f.px).concat(live ? [live] : []);
+    const token = fills.length ? fills[0].token : mint.slice(0, 6);
+    if (!anchors.length) { rejected[mint] = { token, reason: "no fill or live price to check it against" }; continue; }
+    const ratios = [];
+    for (const f of fills) { const c = candleNear(cs, f.t, 30 * 60e3); if (c && c.c > 0) ratios.push(c.c / f.px); }
+    if (live && now != null) { const c = cs[cs.length - 1]; if (c.c > 0 && now - c.t <= 60 * 60e3) ratios.push(c.c / live); }
+    if (ratios.length) {
+      const r = median(ratios);
+      if (!(r <= UNIT_MISMATCH_X && r >= 1 / UNIT_MISMATCH_X)) { rejected[mint] = { token, reason: `history is ${r >= 1 ? r.toFixed(1) + "x" : "1/" + (1 / r).toFixed(1) + "x"} the traded prices (pool not quoted in SOL?)`, ratio: r }; continue; }
+    }
+    const hi = Math.max(...anchors) * PRICE_BOUND_X;
+    const ok = (v) => Number.isFinite(v) && v > 0 && v <= hi;
+    const keep = cs.filter((c) => ok(c.o) && ok(c.h) && ok(c.l) && ok(c.c));
+    if (keep.length < cs.length) dropped[mint] = cs.length - keep.length;
+    if (keep.length) clean[mint] = keep; else rejected[mint] = { token, reason: "every candle was outside the plausible price range" };
+  }
+  return { clean, rejected, dropped };
+}
+
 // ---- aggregates -----------------------------------------------------------
 export function streaks(outcomes) { // outcomes: array of +1 / -1 in time order
   let longestW = 0, longestL = 0, run = 0, sign = 0;
@@ -398,14 +445,18 @@ export function pnlCurve(trades, group, candlesByMint, livePrices, now, { maxPoi
   for (const t of tx) times.add(ms(t.time_aest));
   times.add(now);
   const grid = [...times].sort((a, b) => a - b);
+  // Only this group's own legs: realized P&L of its positions plus its open lots
+  // marked to market. No deposits, no wallet balance, no cost totals.
   const L = new Ledger();
-  let ei = 0, realized = 0, fees = 0, approx = false;
+  let ei = 0, realized = 0, fees = 0, approx = false, deployed = 0;
+  const atCost = new Set();
   const points = [];
   for (const t of grid) {
     while (ei < tx.length && ms(tx[ei].time_aest) <= t) {
       const r = tx[ei];
       const info = L.apply(r);
       if (mine(r)) fees += r.fee_sol || 0;
+      if (r.action === "BUY" && info && info.position && info.position.trader === group) deployed += tradeCost(r);
       if (info) for (const l of info.legs) if (l.position.trader === group) realized += l.realized;
       ei++;
     }
@@ -413,16 +464,27 @@ export function pnlCurve(trades, group, candlesByMint, livePrices, now, { maxPoi
     for (const p of L.open.values()) {
       if (p.trader !== group || p.qty <= 0) continue;
       let px = t >= now && livePrices && livePrices[p.mint] != null ? livePrices[p.mint] : priceAt(candlesByMint && candlesByMint[p.mint], t);
-      if (px == null) { px = p.remaining_cost / p.qty; ptApprox = true; }
+      if (px == null) { px = p.remaining_cost / p.qty; ptApprox = true; atCost.add(p.token); }
       unreal += p.qty * px - p.remaining_cost;
     }
     if (ptApprox) approx = true;
-    points.push({ t, pnl: realized + unreal, realized, unrealized: unreal, fees, approx: ptApprox });
+    points.push({ t, pnl: realized + unreal, realized, unrealized: unreal, fees, deployed, approx: ptApprox });
   }
-  let peak = -Infinity;
-  for (const p of points) { peak = Math.max(peak, p.pnl, 0); p.dd = p.pnl - peak; p.dd_pct = null; }
-  const worst = points.reduce((w, p) => (p.dd < w ? p.dd : w), 0);
-  return { points, approx, max_dd: worst, max_dd_pct: null };
+  const ddOf = (key) => { let peak = -Infinity, worst = 0; for (const p of points) { peak = Math.max(peak, p[key], 0); const d = p[key] - peak; if (key === "pnl") p.dd = d; p.dd_pct = null; if (d < worst) worst = d; } return worst; };
+  let worst = ddOf("pnl"), guarded = false;
+  // Guard: a group cannot lose more from a peak than it ever put in, unless it had
+  // real gains first; a mark-to-market drawdown bigger than the SOL deployed means
+  // bad prices, so fall back to the realized-only curve.
+  if (-worst > deployed + 1e-9) {
+    guarded = true;
+    const rw = ddOf("realized");
+    let peak = -Infinity; for (const p of points) { peak = Math.max(peak, p.realized, 0); p.dd = p.realized - peak; }
+    worst = rw;
+  }
+  const notes = [];
+  if (atCost.size) notes.push(`no usable SOL price history for ${[...atCost].join(", ")}: held at cost between trades (realized-only)`);
+  if (guarded) notes.push(`mark-to-market drawdown exceeded the ${deployed.toFixed(4)} SOL deployed, so realized-only is used`);
+  return { points, approx, max_dd: worst, max_dd_pct: null, deployed, guarded, at_cost: [...atCost], note: notes.join("; ") || null };
 }
 
 // Side-by-side numbers for the Me vs Agent panel. positions: marked positions
@@ -447,6 +509,7 @@ export function compareGroups(positions, trades, curves) {
       unrealized_unknown: unknown,
       avg_hold_ms: closed.length ? sum(closed.map((p) => p.close_time - p.open_time)) / closed.length : null,
       max_dd: curves && curves[g] ? curves[g].max_dd : null,
+      max_dd_note: curves && curves[g] ? curves[g].note : null,
       crossed: pos.reduce((n, p) => n + p.crossed_sells.length, 0),
       crossed_sol: sum(pos.flatMap((p) => p.crossed_sells.map((c) => c.realized))),
       inferred: rows.filter((t) => t._tsrc === "inferred" || t._tsrc === "manual_override").length,

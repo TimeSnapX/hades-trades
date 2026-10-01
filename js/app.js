@@ -1,9 +1,9 @@
 // Hades Trades: read-only dashboard. No wallet connection, no keys, no signing.
-import * as S from "./stats.js?v=3";
-import { validateDoc, loggedTxSet } from "./schema.js?v=3";
-import { parseTx, findSponsoredSells, sponsoredSellFields } from "./parse-tx.js?v=3";
-import * as src from "./sources.js?v=3";
-import { lineChart, barChart, hBars, calendar, progress, COLORS } from "./charts.js?v=3";
+import * as S from "./stats.js?v=4";
+import { validateDoc, loggedTxSet } from "./schema.js?v=4";
+import { parseTx, findSponsoredSells, sponsoredSellFields } from "./parse-tx.js?v=4";
+import * as src from "./sources.js?v=4";
+import { lineChart, barChart, hBars, calendar, progress, COLORS } from "./charts.js?v=4";
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -133,20 +133,22 @@ function model() {
   const marks = marksFrom(all);
   const { positions, rowInfo } = S.buildPositions(all);
   S.markPositions(positions, marks, now);
-  const candles = state.live.candles;
+  const livePrices = Object.fromEntries(Object.entries(marks).map(([m, v]) => [m, v.price_sol]));
+  // Only sanity-checked SOL-per-token history feeds MFE/MAE, curves and simulations.
+  const hist = S.sanitizeCandles(all, state.live.candles, livePrices, now);
+  const candles = hist.clean;
   for (const p of positions) p.ex = S.excursion(candles[p.mint], p.open_time, p.closed ? p.close_time : now, p.entry_price);
   const scope = state.scope, g = state.trader;
   const runTrades = all.filter((t) => S.inScope(t, scope));
   const runPos = positions.filter((p) => S.inScope(p, scope));
   const sTrades = runTrades.filter((t) => S.inGroup(t, g));
   const sPos = runPos.filter((p) => g === "all" || p.trader === g);
-  const livePrices = Object.fromEntries(Object.entries(marks).map(([m, v]) => [m, v.price_sol]));
   const curves = { human: S.pnlCurve(runTrades, "human", candles, livePrices, now), agent: S.pnlCurve(runTrades, "agent", candles, livePrices, now) };
   const eq = g === "all" ? S.equityCurve(runTrades, runPos, candles, livePrices, now) : curves[g];
   const lastPnl = eq.points.length ? eq.points[eq.points.length - 1].pnl : null;
   const agg = S.aggregates(sPos, sTrades, { netPnl: lastPnl });
   const cmp = S.compareGroups(runPos, runTrades, curves);
-  return { now, all, marks, positions, rowInfo, runTrades, runPos, sTrades, sPos, eq, curves, agg, cmp, livePrices, group: g };
+  return { now, all, marks, positions, rowInfo, runTrades, runPos, sTrades, sPos, eq, curves, agg, cmp, livePrices, candles, hist, group: g };
 }
 
 function header(m) {
@@ -346,7 +348,7 @@ function renderAggregates(m) {
       ${statCard("Avg loss", fmt.sol(a.avg_loss_sol, true), fmt.pct(a.avg_loss_pct) + ` · n = ${a.losses}`, "avg-loss")}
       ${statCard("Profit factor", pf, "gross wins / gross losses", "pf")}
       ${statCard("Expectancy / trade", fmt.sol(a.expectancy_sol, true) + " SOL", fmt.pct(a.expectancy_pct) + ` · avg ${fmt.r(a.avg_r)}`, "expectancy")}
-      ${statCard("Max drawdown", fmt.sol(m.eq.max_dd, true) + " SOL", `${m.eq.max_dd_pct == null ? "on this group's P&amp;L curve" : `${fmt.pct(m.eq.max_dd_pct)} of peak equity`} (mark-to-market${m.eq.approx ? ", approx" : ""}) · closed-only ${fmt.sol(a.max_dd_closed.dd, true)}`, "maxdd")}
+      ${statCard("Max drawdown", fmt.sol(m.eq.max_dd, true) + " SOL", `${m.eq.max_dd_pct == null ? "on this group's P&amp;L curve" : `${fmt.pct(m.eq.max_dd_pct)} of peak equity`} (mark-to-market${m.eq.approx ? ", approx" : ""}${m.eq.note ? `; ${esc(m.eq.note)}` : ""}) · closed-only ${fmt.sol(a.max_dd_closed.dd, true)}`, "maxdd")}
       ${statCard("Streak", st.current ? `${st.current.n} ${st.current.kind}${st.current.n > 1 ? (st.current.kind === "win" ? "s" : "es") : ""}` : "n/a", `longest: ${st.longest_win} W / ${st.longest_loss} L`, "streak")}
       ${statCard("Fees paid", fmt.sol(a.fees_sol) + " SOL", `${a.fees_pct_of_pnl == null ? "n/a" : a.fees_pct_of_pnl.toFixed(1) + "%"} of |net P&amp;L| · network + tips + platform`, "fees")}
     </div>`;
@@ -392,7 +394,7 @@ function renderAdherence(m) {
   for (const p of m.sPos) for (const b of p.buys) {
     const cost = S.tradeCost(b);
     const actual = p.total_pnl != null ? p.total_pnl * (cost / p.cost_in) : null;
-    const sim = S.simulateLot({ entry: cost / b.tokens, cost, fromMs: S.ms(b.time_aest), candles: state.live.candles[p.mint], now: m.now, lastPrice: m.livePrices[p.mint] });
+    const sim = S.simulateLot({ entry: cost / b.tokens, cost, fromMs: S.ms(b.time_aest), candles: m.candles[p.mint], now: m.now, lastPrice: m.livePrices[p.mint] });
     lots.push({ b, p, cost, actual, sim });
   }
   const covered = lots.filter((l) => l.sim && l.actual != null);
@@ -512,7 +514,7 @@ function renderCompare(m) {
     ["pf", "Profit factor", (x) => pf(x.profit_factor), () => "gross wins / gross losses"],
     ["expectancy", "Expectancy / trade", (x) => fmt.sol(x.expectancy_sol, true), (x) => `${fmt.pct(x.expectancy_pct)} per closed position`],
     ["hold", "Avg hold (closed)", (x) => fmt.dur(x.avg_hold_ms), (x) => `n = ${x.n_closed}`],
-    ["maxdd", "Max drawdown", (x) => fmt.sol(x.max_dd, true), () => "on the group's P&amp;L curve"],
+    ["maxdd", "Max drawdown", (x) => fmt.sol(x.max_dd, true), (x) => `on the group's P&amp;L curve${x.max_dd_note ? ` <span data-dd-note>(${esc(x.max_dd_note)})</span>` : ""}`],
     ["fees", "Fees paid", (x) => fmt.sol(x.fees_sol), (x) => aud(-x.fees_sol).replace(/^-/, "")],
     ["crossed", "Crossed sells", (x) => `${x.crossed}`, (x) => (x.crossed ? `${fmt.sol(x.crossed_sol, true)} SOL realized on this group's bags by the other` : "none")],
   ];
@@ -527,7 +529,8 @@ function renderCompare(m) {
     ${fewG("human")}${fewG("agent")}
     <div class="table-wrap"><table class="cmp"><thead><tr><th></th><th class="human">${WHO.human}</th><th class="agent">${WHO.agent}</th></tr></thead>
     <tbody>${rows.map((r) => `<tr data-cmp-row="${r[0]}"><th>${r[1]}</th>${cell("human", r)}${cell("agent", r)}</tr>`).join("")}</tbody></table></div>
-    ${m.curves.human.approx || m.curves.agent.approx ? '<p class="muted tiny">Open tokens without price history are marked at cost (flat), so the curves are approximate there.</p>' : ""}
+    ${m.curves.human.approx || m.curves.agent.approx ? '<p class="muted tiny">Open tokens without usable SOL price history are held at cost (flat, realized-only) between trades, so the curves are approximate there.</p>' : ""}
+    ${Object.keys(m.hist.rejected).length ? `<p class="muted tiny" data-hist-rejected>Price history ignored: ${Object.values(m.hist.rejected).map((r) => `${esc(r.token)} (${esc(r.reason)})`).join("; ")}.</p>` : ""}
     ${chart}
     <p class="muted tiny">AUD at today's rate${fx && fx.usd_aud ? ` (1 SOL = A$${(fx.sol_usd * fx.usd_aud).toFixed(2)})` : " (unavailable)"}. Rows marked ? are inferred (on-chain activity not logged by Hades); * = re-assigned on this device.</p>`;
 }
@@ -595,7 +598,7 @@ async function loadCandles() {
   const errs = [];
   for (const p of positions.sort((a, b) => b.open_time - a.open_time).slice(0, 10)) {
     const info = L.prices[p.mint];
-    const pool = await src.getPool(p.mint, info && info.pair);
+    const pool = await src.getPool(p.mint, info && info.sol_quote ? info.pair : null);
     if (!pool) { missing++; continue; }
     try {
       const r = await src.getCandles(pool, p.mint, p.open_time - 30 * 60e3, p.closed ? Math.min(now, p.close_time + 6 * 3600e3) : now);

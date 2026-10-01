@@ -246,4 +246,43 @@ test("schema: linked_txs / proceeds_external rules, linked txs count as logged",
   assert.ok(loggedTxSet([sell]).has(sell.linked_txs[0]));
   assert.deepEqual(validateDoc(C), []);
 });
+test("Me max drawdown bug (2026-10-02): DARK/wNEAR candles inflate the Me curve; sanitizer + guard fix it", () => {
+  const doc = read("trades-2026-10-02.json");
+  const rows = S.annotate(doc.trades);
+  const DARK = "7KEPApdbBMByrmqihz3bht2uMhFQcatjfSFQCKq66kH3";
+  const g = read("ohlcv-dark-wnear.json");
+  const wnear = g.data.attributes.ohlcv_list.map(([t, o, h, l, c]) => ({ t: t * 1000, o, h, l, c })).sort((a, b) => a.t - b.t);
+  const now = Date.parse("2026-10-02T09:20:00+10:00");
+  // the bug: unguarded mark-to-market curve with raw wNEAR-denominated candles
+  const raw = S.pnlCurve(rows, "human", { [DARK]: wnear }, {}, now);
+  near(S.maxDrawdown(raw.points.map((p) => ({ t: p.t, v: p.pnl }))).dd, -2.341528994, 1e-6, "reproduces live -2.3415");
+  assert.ok(-S.maxDrawdown(raw.points.map((p) => ({ t: p.t, v: p.pnl }))).dd > raw.deployed, "impossible: exceeds SOL deployed");
+  // guard: falls back to realized-only and says so
+  assert.equal(raw.guarded, true); assert.match(raw.note, /realized-only/);
+  assert.ok(-raw.max_dd <= raw.deployed);
+  const realizedOnly = S.maxDrawdown([{ t: 0, v: 0 }, ...raw.points.map((p) => ({ t: p.t, v: p.realized }))]).dd;
+  near(raw.max_dd, realizedOnly, 1e-12);
+  // sanitizer: unit check rejects the series (DARK fills vs candles ~26x)
+  const h = S.sanitizeCandles(rows, { [DARK]: wnear }, {}, now);
+  assert.equal(h.clean[DARK], undefined);
+  assert.ok(h.rejected[DARK] && h.rejected[DARK].ratio > 20 && h.rejected[DARK].ratio < 30, JSON.stringify(h.rejected));
+  const fixed = S.pnlCurve(rows, "human", h.clean, {}, now);
+  assert.equal(fixed.guarded, false); assert.ok(fixed.at_cost.includes("DARK"));
+  near(fixed.max_dd, -0.443995005, 1e-9, "Me drawdown, realized-only for unpriced tokens");
+  assert.ok(-fixed.max_dd <= fixed.deployed);
+  const agent = S.pnlCurve(rows, "agent", h.clean, {}, now);
+  near(agent.max_dd, -0.019605772, 1e-9); assert.ok(-agent.max_dd <= agent.deployed);
+  // the same series converted to SOL passes; a single absurd spike is dropped, not trusted
+  const ratio = h.rejected[DARK].ratio;
+  const sol = wnear.map((c) => ({ t: c.t, o: c.o / ratio, h: c.h / ratio, l: c.l / ratio, c: c.c / ratio }));
+  const spike = sol.map((c, i) => (i === 40 ? { ...c, h: c.h * 5000, c: c.c * 5000 } : c));
+  const h2 = S.sanitizeCandles(rows, { [DARK]: spike }, {}, now);
+  assert.equal(h2.rejected[DARK], undefined); assert.equal(h2.dropped[DARK], 1); assert.equal(h2.clean[DARK].length, sol.length - 1);
+  const ok = S.pnlCurve(rows, "human", h2.clean, {}, now);
+  assert.equal(ok.guarded, false); assert.ok(!ok.at_cost.includes("DARK")); assert.ok(-ok.max_dd <= ok.deployed);
+  // the Me vs Agent table carries the note
+  const { positions } = S.buildPositions(rows);
+  const cmp = S.compareGroups(positions, rows, { human: raw, agent });
+  assert.match(cmp.human.max_dd_note, /exceeded/); assert.match(cmp.agent.max_dd_note, /INUINK/); assert.doesNotMatch(cmp.agent.max_dd_note, /exceeded/);
+});
 console.log(`\n${n} unit test groups passed`);

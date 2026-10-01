@@ -162,6 +162,17 @@ stated in trades.md (e.g. 101x, keep >= 10%, no stop).
   streaks use closed positions. DEPOSIT/WITHDRAW are excluded from trade stats.
 - Group P&L curve = cumulative realized + unrealized P&L of that group's positions;
   group max drawdown is in SOL on that curve (no %, the groups share one wallet).
+  Only the group's own legs count (no deposits, wallet balance or cost totals).
+  Guard: if the mark-to-market drawdown is larger than the SOL the group deployed
+  (sum of its BUY costs), the prices are bad and the realized-only drawdown is used,
+  with a note.
+- Price history (GeckoTerminal) must be SOL per token: only SOL-quoted pools are
+  used (DexScreener SOL pair, else GeckoTerminal's most liquid SOL pool; a pool whose
+  OHLCV meta isn't token/SOL is refused). Each series is then checked against the
+  logged fills and the live price: median ratio outside 1/3x-3x rejects the whole
+  series (e.g. DARK's DARK/wNEAR pool, ~26x), and candles above 50x the highest
+  known price are dropped. A token without usable history is held at cost between
+  trades (realized-only), with a note in the Me vs Agent panel.
 - R = P&L% / 35% (the real-run hard stop).
 - Wallet value = live SOL + reclaimable token-account rent + token balances x price.
 - Deposited = sum of DEPOSIT minus WITHDRAW `sol`; fiat deposited uses `usd_at_time`.

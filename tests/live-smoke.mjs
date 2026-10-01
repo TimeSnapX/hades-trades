@@ -39,6 +39,17 @@ const out = {
 await p.screenshot({ path: process.env.SHOT || "/tmp/hades-live.png", fullPage: false });
 console.log(JSON.stringify(out, null, 2));
 await b.close(); if (server) server.close();
-const ok = appErrors.length === 0 && /SOL$/.test(out.total || "") && out.positions.length > 0 && out.charts.length >= 6 && Object.keys(out.compare).length >= 20 && out.traderSeg.length === 3;
+// Open positions: the page must list exactly as many as the Me/Agent panel counts
+// ("· N open"); zero open positions is a valid state (everything sold).
+const openOf = (k) => { const m = /(\d+) open/.exec(out.compare[k] || ""); return m ? Number(m[1]) : null; };
+const nOpen = [openOf("human-unrealized"), openOf("agent-unrealized")];
+const positionsOk = nOpen.every((v) => v != null) && out.positions.length === nOpen[0] + nOpen[1];
+// Drawdown sanity: a group's max drawdown can't exceed the SOL ever deposited.
+const solNum = (s) => { const m = /-?[\d.]+/.exec((s || "").replace(/[−–]/g, "-")); return m ? Number(m[0]) : NaN; };
+const dep = solNum(out.deposited);
+const ddOk = ["human-maxdd", "agent-maxdd"].every((k) => Math.abs(solNum(out.compare[k])) <= dep + 1e-9);
+const checks = { appErrors: appErrors.length === 0, total: /SOL$/.test(out.total || ""), positions: positionsOk, charts: out.charts.length >= 6, compare: Object.keys(out.compare).length >= 20, traderSeg: out.traderSeg.length === 3, drawdown: ddOk };
+console.log("checks", JSON.stringify({ ...checks, open: nOpen, deposited: dep }));
+const ok = Object.values(checks).every(Boolean);
 console.log(ok ? "LIVE SMOKE OK" : "LIVE SMOKE FAILED");
 process.exit(ok ? 0 : 1);
