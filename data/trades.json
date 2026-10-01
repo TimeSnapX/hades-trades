@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-01T11:54:50+10:00",
+  "updated_aest": "2026-10-01T15:14:41+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -601,6 +601,66 @@
         "time_stop_hours": null,
         "keep_min_frac": 0.1,
         "note": "Under-$20 rule: hold to 101x (~11.79 SOL), keep >= 10%."
+      },
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ]
+    },
+    {
+      "id": "buy-degen-5jtK5Aq9",
+      "time_aest": "2026-10-01T15:13:21+10:00",
+      "action": "BUY",
+      "token": "DEGEN",
+      "mint": "4vEX32B4LLr2hL4tzdgz724rSYXGccAGT8MRSUaNpump",
+      "sol": 0.101599841,
+      "tokens": 21627.005954,
+      "usd_at_time": 12.1026,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-01T15:13:00+10:00",
+      "fee_sol": 0.000936001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
+        "platform_sol": 0.00085
+      },
+      "rent_sol": 0.00151384,
+      "price_expected": null,
+      "price_filled": 0.000004623848544,
+      "tx": "5jtK5Aq9MdWSq2n7wmnFmDKCjN4mSSf2RvibNCfdEn8sPEszVWa8jzybvAqmm2J2eN1HgKjRVP9oveENwfhYmaTv",
+      "reason": "User's pick from Argus's 14:50 scan runner-up; RugCheck score 1, no risks, mint/freeze revoked, LP 100% burned, 0 insiders, ~55% below peak.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": 1,
+        "filters_passed": [
+          "mint_freeze_revoked",
+          "lp_locked_or_burned",
+          "dev_insiders_lt_15pct",
+          "not_after_pump",
+          "rugcheck_no_warnings"
+        ],
+        "filters_failed": [],
+        "source": "trades.md (Hades log)",
+        "notes": "Approximate values from the 15:13 buy note; Argus 14:50 scan runner-up, LP 100% burned, 0 insiders, ~55% below peak."
+      },
+      "exit_reason": null,
+      "planned_targets": {
+        "rule_set": "test-under-$20",
+        "take_profit": [
+          {
+            "x": 101,
+            "sell_frac": null
+          }
+        ],
+        "stop_x": null,
+        "trail_pct": null,
+        "time_stop_hours": null,
+        "keep_min_frac": 0.1,
+        "note": "Under-$20 rule: hold to 101x (~10.26 SOL), keep >= 10%."
       },
       "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "verified_chain": true,
