@@ -53,43 +53,39 @@ rename it over the original.
 | `token_program` | string \| null | SPL Token (`Tokenkeg...`) or Token-2022 (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`). |
 | `verified_chain` | boolean | true when amounts came from the chain (`--from-tx` or `--verify`). |
 | `unverified` | string[] | Fields that could not be verified (e.g. `price_expected`, `reason`, `usd_at_time`). |
-| `trader` | `agent` \| `human` | Optional (added 2026-10-01). Whose decision the trade was (not who clicked): `human` = Jarrad picked the token or ordered the buy/sell (whether he traded in Phantom himself or Hades placed it for him); `agent` = Hades chose the trade itself under its own rules. See "Who counts as the trader" below and `LOGGING-RULES.md`. |
+| `trader` | `agent` \| `human` | Optional (added 2026-10-01). Who executed the trade: `agent` = Hades (the bot) placed it, including on Jarrad's pick or instruction; `human` = Jarrad traded himself in Phantom. See "Who counts as the trader" below and `LOGGING-RULES.md`. |
 | `trader_source` | `logged` \| `inferred` \| `manual_override` | Optional, requires `trader`. `logged`: written by the trader's own logging (Hades via add-trade / trades.md, or `--trader` given explicitly). `inferred`: wallet activity Hades did not log (`--sync-unlogged`, or DEPOSIT/WITHDRAW defaults). `manual_override`: a person reclassified it (`--apply-overrides`). |
 | `linked_txs` | base58[] | Optional. Other signatures that belong to this row, e.g. the Phantom gas-sponsor loan in/out around a sponsored sell. They count as logged for dedupe and "unlogged activity". |
 | `wallet_sol_delta` | number | Optional, SELL only. Signed net change in the wallet's native SOL across the row's txs, when proceeds left the wallet (see `proceeds_external`). |
 | `proceeds_external` | object | Optional, SELL only: `{asset, mint, amount, to, sol_equiv, sol_usd}`. Phantom sold to a stablecoin (e.g. CASH) and sent it to another wallet `to`. Then `sol = sol_equiv + wallet_sol_delta` (proceeds valued in SOL at `sol_usd`). |
 
-### Who counts as the trader (rule from 2026-10-02)
+### Who counts as the trader
 
-- `human` (Me): Jarrad picked the token, or ordered the buy or sell ("buy X",
-  "put it all on Y", "sell all"), or traded himself in Phantom. Hades placing the
-  order does not make it `agent`. Hades logs these with `--trader human`.
-- `agent` (Hades): Hades chose the entry itself (its own screen, its own rules), and
-  the rule-based exits of those positions (targets, trail, stop, time stop, emergency).
+- `agent` (Hades): every trade Hades executes, whether it chose the token itself or
+  Jarrad picked it or ordered the buy/sell ("buy X", "put it all on Y", "sell all").
+  The pick/order goes in `reason` (e.g. "User picked ...", "User ordered sell-all").
   Hades logs these with `--trader agent`.
-- Rule-based automatic exits on a **human-picked** position (stop, target, trail, time
-  stop, emergency) stay **`human`**, i.e. with the buy's group. Reason: attribution is
-  FIFO per group (below). An `agent` sell of a position only Me holds has no Agent
-  inventory, so it becomes a "crossed" leg: its P&L still goes to Me, but the sell is
-  counted in Agent's trade count and shown as Agent's. That splits one position over
-  two columns and inflates Agent's activity without any Agent P&L. The exit rule is
-  still recorded in `exit_reason` (`stop`, `target_1.5x`, `trail`, ...) and `reason`.
-- An explicit order from Jarrad to sell an `agent` position is `human` (he decided it).
-  The sell then crosses into Agent's inventory, the P&L stays with Agent and the row
-  shows the "crossed" tag, which is the intended marker of a human intervention.
-- On 2026-10-02 the 16 test-run rows Hades placed on Jarrad's picks/orders (PAYDAY,
-  RESI, SI, SS, PUMPKINU, DEGEN, DARK buys and the sell-alls) were reclassified to
-  `human` / `manual_override`. Only the INUINK buy and its stop sell remain `agent`.
+- `human` (Me): only trades Jarrad made himself in Phantom. Hades doesn't log them;
+  `--sync-unlogged` adds them as `human` / `inferred`, or `--trader human` when
+  someone logs one explicitly.
+- A Hades rule-based exit (stop, target, trail, time stop, emergency) on a position
+  Jarrad bought himself is still `agent` (Hades executed it). With FIFO per group the
+  sell then takes Me's inventory: the leg is flagged "crossed", its P&L stays with
+  Me (who bought it) and only the sell is counted in Agent's trade count.
+- 2026-10-02: the 16 rows Hades placed on Jarrad's picks/orders were briefly
+  reclassified to `human` / `manual_override` and the same day **reverted** to
+  `agent` / `logged`. The CATCHER / uinhim sells and deposits found by
+  `--sync-unlogged` stay `human` / `inferred`.
 
 ### Trader classification and backwards compatibility
 
 - Missing `trader`: BUY/SELL rows are treated as `agent` / `logged` (everything
   logged before 2026-10-01 came from Hades); DEPOSIT/WITHDRAW are `human` /
-  `inferred`. The CLI default for BUY/SELL is still `agent`, so Hades must always pass
-  `--trader` explicitly (see above). `add-trade.mjs --backfill-trader` writes these defaults into the file.
-- Hades runs `add-trade.mjs --from-tx <sig> ... --trader human|agent` and gets
-  `trader_source: logged`. `--trader human` for the user's picks and orders,
-  `--trader agent` only for Hades' own trades (rules above).
+  `inferred`. `add-trade.mjs --backfill-trader` writes these defaults into the file.
+- Hades runs `add-trade.mjs --from-tx <sig> ... --trader agent` (the default for
+  BUY/SELL) and gets `trader: agent`, `trader_source: logged`, also when it acts on
+  the user's pick or instruction. `--trader human` only marks a row the user did
+  himself in Phantom (`logged`).
 - `add-trade.mjs --sync-unlogged` adds every wallet tx not in the file as
   `trader: human`, `trader_source: inferred`, `reason: "manual (user)"`,
   `exit_reason: "manual"` on sells, run by date. Phantom gas-sponsored sells

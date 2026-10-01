@@ -1,33 +1,28 @@
-# Hades: who is the trader? (rule from 2026-10-02)
+# Hades: who is the trader?
 
-When you log a trade with `add-trade.mjs`, always pass `--trader`. The dashboard
-compares **Me** (Jarrad) with **Agent** (Hades) by whose decision the trade was,
-not by who clicked.
+The dashboard compares **Me** (Jarrad trading himself) with **Agent** (Hades) by
+who executed the trade.
 
 | Situation | Flag |
 |---|---|
-| Jarrad picked the token (from a shortlist, an Argus pick, his own idea) and you bought it | `--trader human` |
-| Jarrad ordered the buy or sell ("buy X", "put it all on Y", "sell all", "sell DARK") | `--trader human` |
-| Stop / target / trail / time-stop / emergency exit on a position **Jarrad picked** | `--trader human` (and the right `--exit-reason`) |
-| You chose the entry yourself under your own rules (no pick or order from Jarrad) | `--trader agent` |
-| Stop / target / trail / time-stop / emergency exit on **your own** position | `--trader agent` |
-| Jarrad orders you to sell one of **your own** positions | `--trader human` (the row shows as "crossed"; P&L stays with Agent) |
+| You chose the token and bought/sold it under your rules | `--trader agent` |
+| Jarrad picked the token (shortlist, Argus pick, his idea) and you placed the buy | `--trader agent` (say "User picked ..." in `--reason`) |
+| Jarrad ordered the buy or sell ("buy X", "put it all on Y", "sell all") and you placed it | `--trader agent` (say "User ordered ..." in `--reason`) |
+| Your stop / target / trail / time-stop / emergency exit, on any position | `--trader agent` (and the right `--exit-reason`) |
+| Jarrad traded himself in Phantom | `--trader human`, or leave it to `--sync-unlogged` (adds it as human/inferred) |
 
-Why exits follow the buy: P&L is matched FIFO within each group. An `agent` exit on
-a position only Me holds becomes a "crossed" leg: the P&L still goes to Me, but the
-sell is counted as an Agent trade. That splits one position over two columns. So a
-position keeps its buyer's group for its rule-based exits, and `--exit-reason`
-records which rule fired.
+`--trader agent` is the CLI default for BUY/SELL, so passing it is optional but
+clearer. If you exit a position Jarrad bought himself, the sell shows as "crossed"
+and its P&L stays with Me (FIFO per group).
 
-If you are unsure, write the pick/order in `--reason` (e.g. "User picked ...",
-"User ordered sell-all") and use `--trader human`. Never leave `--trader` out: the
-CLI default for BUY/SELL is `agent`.
+(On 2026-10-02 the user-picked rows were briefly switched to `human`; that was
+reverted the same day. This file is the current rule.)
 
 Example:
 ```bash
-node /home/box/hades/add-trade.mjs --from-tx <sig> --token SYM --trader human \
+node /home/box/hades/add-trade.mjs --from-tx <sig> --token SYM --trader agent \
   --reason "User picked from Argus shortlist; ..." --snapshot '{...}' --targets real
-node /home/box/hades/add-trade.mjs --from-tx <sig> --trader human --exit-reason stop \
-  --reason "Hit -35% hard stop on user's pick"
+node /home/box/hades/add-trade.mjs --from-tx <sig> --trader agent --exit-reason stop \
+  --reason "Hit -35% hard stop"
 node /home/box/hades/add-trade.mjs --validate
 ```

@@ -26,13 +26,10 @@ node /home/box/hades/add-trade.mjs --validate
 ```
 (Exit code 3 means that tx is already logged. See `--help` and SCHEMA.md.)
 
-**Always pass `--trader`** (rule from 2026-10-02, details in `LOGGING-RULES.md`):
-- `--trader human`: Jarrad picked the token or ordered the buy/sell, even when Hades
-  placed the order. Rule-based exits (stop/target/trail/time stop) of a position he
-  picked are also `human`, so the whole position stays in the Me column.
-- `--trader agent`: only when Hades chose the trade itself under its own rules, and the
-  rule-based exits of those positions.
-The CLI still defaults BUY/SELL to `agent`, so leaving `--trader` out is a mistake.
+Who is the trader (details in `LOGGING-RULES.md`):
+- `--trader agent` (the default for BUY/SELL): every trade Hades executes, including
+  on Jarrad's pick or instruction. Put the pick/order in `--reason`.
+- `--trader human`: only trades Jarrad made himself in Phantom.
 
 For trades Jarrad made himself in Phantom (Hades didn't log them):
 ```bash
