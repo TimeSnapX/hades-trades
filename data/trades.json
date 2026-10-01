@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-02T09:38:54+10:00",
+  "updated_aest": "2026-10-02T09:45:28+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -1686,6 +1686,67 @@
       ],
       "trader": "human",
       "trader_source": "inferred"
+    },
+    {
+      "id": "buy-octo-3qiLUi3b",
+      "time_aest": "2026-10-02T09:44:46+10:00",
+      "action": "BUY",
+      "token": "OCTO",
+      "mint": "GoADAwux19tGxb3W4ykPzZz8p5JCSYaxBRpuW7s9pump",
+      "sol": 0.128305069,
+      "tokens": 21657.67172,
+      "usd_at_time": 15.1888,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T09:44:00+10:00",
+      "fee_sol": 0.001168179,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000011228,
+        "platform_sol": 0.00107695
+      },
+      "rent_sol": 0.00151384,
+      "price_expected": null,
+      "price_filled": 0.000005850120994,
+      "tx": "3qiLUi3bC7gxg4Ne4Rfr7xWPS49Ybdt7dRJBnps4vmBM4H6DJcWHtAK5eDJsdhJt5TGydXPuYjvRKP8iUn4Jmv1C",
+      "reason": "User requested via Argus ($15 of OCTO); RugCheck score 1, mint/freeze revoked, LP locked; dev holds ~9%.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": 1,
+        "filters_passed": [
+          "mint_freeze_revoked",
+          "lp_locked_or_burned",
+          "dev_insiders_lt_15pct",
+          "rugcheck_no_warnings"
+        ],
+        "filters_failed": [],
+        "source": "trades.md (Hades log)",
+        "notes": "Approximate values from the 09:45 buy note; Argus OCTO pick, dev holds ~9%."
+      },
+      "exit_reason": null,
+      "planned_targets": {
+        "rule_set": "test-under-$20",
+        "take_profit": [
+          {
+            "x": 101,
+            "sell_frac": null
+          }
+        ],
+        "stop_x": null,
+        "trail_pct": null,
+        "time_stop_hours": null,
+        "keep_min_frac": 0.1,
+        "note": "Under-$20 rule: hold to 101x, keep >= 10%."
+      },
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ],
+      "trader": "agent",
+      "trader_source": "logged"
     }
   ],
   "last_manager_check": {
