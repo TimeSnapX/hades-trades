@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-02T09:12:21+10:00",
+  "updated_aest": "2026-10-02T09:17:25+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -1465,6 +1465,37 @@
       "trader_source": "inferred"
     },
     {
+      "id": "deposit-sol-3CeqbMEd",
+      "time_aest": "2026-10-02T05:24:30+10:00",
+      "action": "DEPOSIT",
+      "token": "SOL",
+      "mint": null,
+      "sol": 0.046156218,
+      "tokens": null,
+      "usd_at_time": 5.4474,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T05:24:00+10:00",
+      "fee_sol": 0,
+      "fee_breakdown": {
+        "network_sol": 0,
+        "tip_sol": 0,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "3CeqbMEdCYyUzwgLzZ7FF8unnJAG1oNjJGPMpYNMY4yyjMbz73VaLt4xmUMh36a5hqDDqrecs2VeSEwcgzFMxE4u",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": null,
+      "verified_chain": true,
+      "unverified": [],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
       "id": "buy-dark-2vgrowFU",
       "time_aest": "2026-10-02T06:41:20+10:00",
       "action": "BUY",
@@ -1525,6 +1556,70 @@
       "trader_source": "logged"
     },
     {
+      "id": "sell-catcher-3PBs5tQU",
+      "time_aest": "2026-10-02T09:05:41+10:00",
+      "action": "SELL",
+      "token": "CATCHER",
+      "mint": "8V89rPVKVjGCvxGC21bLWJ88fuN4DVZ8kqXK2XUmiwqY",
+      "sol": 0.065229413,
+      "tokens": 2342606.502849,
+      "usd_at_time": 7.7075,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T09:05:00+10:00",
+      "fee_sol": 0.000667797,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
+        "platform_sol": 0.000581796
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 2.7881513e-8,
+      "tx": "3PBs5tQUnsLDgT6AwdCqgjegNLoJYQVzj1sq6KJgrgXHUbpQchvBBF1rirFCeYKBQPfSr1dvUtfNVWRCRunP8ds9",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": "manual",
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "deposit-sol-5kMwBmmz",
+      "time_aest": "2026-10-02T09:07:41+10:00",
+      "action": "DEPOSIT",
+      "token": "SOL",
+      "mint": null,
+      "sol": 0.037046209,
+      "tokens": null,
+      "usd_at_time": 4.3759,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T09:07:00+10:00",
+      "fee_sol": 0,
+      "fee_breakdown": {
+        "network_sol": 0,
+        "tip_sol": 0,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "5kMwBmmz7pNaENuyCRysAszcx5NVp1oQfuAkxVC9DG4rrHxbqwCkTaBijr4i8s1es9F56HXYeatAbVTAz8GEFy7j",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": null,
+      "verified_chain": true,
+      "unverified": [],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
       "id": "sell-dark-TjUGSUqF",
       "time_aest": "2026-10-02T09:11:41+10:00",
       "action": "SELL",
@@ -1557,6 +1652,40 @@
       ],
       "trader": "agent",
       "trader_source": "logged"
+    },
+    {
+      "id": "sell-uinhim-EEhXBw7w",
+      "time_aest": "2026-10-02T09:12:38+10:00",
+      "action": "SELL",
+      "token": "uinhim",
+      "mint": "CGFxEZjfXPwpviVAs614BxcbUtqkNRt3pwksW92Epump",
+      "sol": 0.013451295,
+      "tokens": 40737297.156149,
+      "usd_at_time": 1.5886,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T09:12:00+10:00",
+      "fee_sol": 0.000086001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 3.32307e-10,
+      "tx": "EEhXBw7w6vrNLh7SmtTB8Y3Ym8WcjcyW4w9cqUMVhzAaDYaN1SCYqoqNUQRQoVWyUj7M6ohb2CmbTivpQCSacUc",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": "manual",
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "platform_fee_sol",
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
     }
   ],
   "last_manager_check": {
