@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-09-30T18:44:00+10:00",
+  "updated_aest": "2026-10-01T11:54:50+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -46,13 +46,13 @@
       "usd_source": "kraken SOLUSD 5m close @ 2026-09-29T21:10:00+10:00",
       "fee_sol": 0.000426001,
       "fee_breakdown": {
-        "network_sol": 8.0001e-05,
-        "tip_sol": 6e-06,
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
         "platform_sol": 0.00034
       },
       "rent_sol": 0.00151384,
       "price_expected": null,
-      "price_filled": 1.3973422496e-05,
+      "price_filled": 0.000013973422496,
       "tx": "5JHQM8yPqkVtNQ1M1beyy3DBNuZbF1yQ2NUjQaArYXLNHBJHksXaiNf5sNavQuqAAHd4ocfDeWS91F5yctmWbjnM",
       "reason": null,
       "run": "test",
@@ -96,13 +96,13 @@
       "usd_source": "kraken SOLUSD 5m close @ 2026-09-29T21:15:00+10:00",
       "fee_sol": 0.000298501,
       "fee_breakdown": {
-        "network_sol": 8.0001e-05,
-        "tip_sol": 6e-06,
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
         "platform_sol": 0.0002125
       },
       "rent_sol": 0.00151384,
       "price_expected": null,
-      "price_filled": 1.867081801e-06,
+      "price_filled": 0.000001867081801,
       "tx": "Py9Zo56RmKNb9wzrCzXvUJjKaykcsioCtJEHGLZ5rMadfNQw6XTNWJ3s6NQmnFdexubRVRc2euVzTaRMPeczYuf",
       "reason": "Full degen, user-requested 2026-09-29",
       "run": "test",
@@ -150,13 +150,13 @@
       "usd_source": "kraken SOLUSD 5m close @ 2026-09-29T22:00:00+10:00",
       "fee_sol": 0.000405087,
       "fee_breakdown": {
-        "network_sol": 8.0001e-05,
-        "tip_sol": 6e-06,
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
         "platform_sol": 0.000319086
       },
       "rent_sol": 0,
       "price_expected": null,
-      "price_filled": 7.184515523e-06,
+      "price_filled": 0.000007184515523,
       "tx": "2cvToVLXx6H2VV5ABXrAVFgcAKFU2XYXcFhR2H4ghBP9PPBjnm8q11Z2hAEuS72wTpdSFsXuzZjENU1MaUm3vHjc",
       "reason": "Hit -50% stop at 0.0208 SOL (entry 0.0416); sold all",
       "run": "test",
@@ -181,13 +181,13 @@
       "usd_source": "kraken SOLUSD 5m close @ 2026-09-29T22:05:00+10:00",
       "fee_sol": 0.000264501,
       "fee_breakdown": {
-        "network_sol": 8.0001e-05,
-        "tip_sol": 6e-06,
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
         "platform_sol": 0.0001785
       },
       "rent_sol": 0,
       "price_expected": null,
-      "price_filled": 7.23040445e-07,
+      "price_filled": 7.23040445e-7,
       "tx": "2PDfdgjoWnZJF4S14VZGZKKLXH9HRSufxdbLegk2S4yakDnb3TEomnUTfqBQvSakCFAvwzmzrEgGKwGTBZwJ4dWZ",
       "reason": "Top-up, user request \"put the rest on payday\"",
       "run": "test",
@@ -264,13 +264,13 @@
       "usd_source": "kraken SOLUSD 5m close @ 2026-09-29T22:25:00+10:00",
       "fee_sol": 0.000647001,
       "fee_breakdown": {
-        "network_sol": 8.0001e-05,
-        "tip_sol": 6e-06,
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
         "platform_sol": 0.000561
       },
       "rent_sol": 0,
       "price_expected": null,
-      "price_filled": 9.85895666e-07,
+      "price_filled": 9.85895666e-7,
       "tx": "3Qo5xHmLVPhgcf9AyTTJxTkse5S3drEa5D9LPzu3ZBTYQ4Xq35Dofahtv2XJB6KEpaDxA57bqap74hXf3RyUG15H",
       "reason": "User: \"put it all on PAYDAY\"",
       "run": "test",
@@ -347,13 +347,13 @@
       "usd_source": "kraken SOLUSD 1m close @ 2026-09-30T17:56:00+10:00",
       "fee_sol": 0.00076683,
       "fee_breakdown": {
-        "network_sol": 8.0001e-05,
-        "tip_sol": 6.829e-06,
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006829,
         "platform_sol": 0.00068
       },
       "rent_sol": 0.00151384,
       "price_expected": null,
-      "price_filled": 1.634540539e-06,
+      "price_filled": 0.000001634540539,
       "tx": "3GPJ2SL3yr6REFDHBnLj7LLPZLoLAQwxpUTLNLgTXEYVTFLLFTZ1eqD16eUbc3k8nb6Ju7fZLErexrVB2STtTNu6",
       "reason": "User picked from shortlist. Launched today 09:02 AEST, mcap ~$197k, liq ~$47k, 24h vol $5.5M, bought after -79% 6h dump; RugCheck clean, mint/freeze revoked, LP locked, top10 ~30%.",
       "run": "test",
@@ -410,13 +410,13 @@
       "usd_source": "kraken SOLUSD 1m close @ 2026-09-30T17:59:00+10:00",
       "fee_sol": 0.000936001,
       "fee_breakdown": {
-        "network_sol": 8.0001e-05,
-        "tip_sol": 6e-06,
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
         "platform_sol": 0.00085
       },
       "rent_sol": 0.00151384,
       "price_expected": null,
-      "price_filled": 1.173533004e-06,
+      "price_filled": 0.000001173533004,
       "tx": "3knvAmdYnSjuHe3mPXZ6L9DeSm2ZCHbUEapBbQSKrMRLe9Z6RW7J9cervpYzttV7pojWjj2VubAn4b1mh5Y5xFfy",
       "reason": "User request (runner-up from today's screen); RugCheck score 1, no risks, LP ~96% locked.",
       "run": "test",
@@ -467,13 +467,13 @@
       "usd_source": "kraken SOLUSD 1m close @ 2026-09-30T18:33:00+10:00",
       "fee_sol": 0.001191001,
       "fee_breakdown": {
-        "network_sol": 8.0001e-05,
-        "tip_sol": 6e-06,
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
         "platform_sol": 0.001105
       },
       "rent_sol": 0.00151384,
       "price_expected": null,
-      "price_filled": 1.1936537639e-05,
+      "price_filled": 0.000011936537639,
       "tx": "UkBqgzr8TrhQ4jxEqJqetq9KWgzS4gi3vsPuvNpgGez9WoTbYSzPgsegm9mWME3i1SeBc4PpjmvjsAZcnpPrcTQ",
       "reason": "User pick after strict hunt; MC ~$1.41M, liq ~$111k locked, ~9.9k holders, top10 7.1%, RugCheck 1 no risks. Flags: already ~29x from launch, paid boosts, possible bot-padded volume, STONK-derivative.",
       "run": "test",
@@ -507,6 +507,100 @@
         "time_stop_hours": null,
         "keep_min_frac": 0.1,
         "note": "Under-$20 rule: hold to 101x (~13.29 SOL), keep >= 10%."
+      },
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ]
+    },
+    {
+      "id": "deposit-sol-4qDtpEwm",
+      "time_aest": "2026-10-01T10:54:37+10:00",
+      "action": "DEPOSIT",
+      "token": "SOL",
+      "mint": null,
+      "sol": 0.220460594,
+      "tokens": null,
+      "usd_at_time": 25.9923,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-01T10:54:00+10:00",
+      "fee_sol": 0,
+      "fee_breakdown": {
+        "network_sol": 0,
+        "tip_sol": 0,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "4qDtpEwmmGpL2CMDXscrNc8HedMY36VvCrGpnf6bqoZLHEtcnjJNjNiDYLAhf8w6bCcdjXvUhGoEHZBJPgik1n8D",
+      "reason": "User top-up (~$26)",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": null,
+      "verified_chain": true,
+      "unverified": []
+    },
+    {
+      "id": "buy-pumpkinu-5N6GL8XL",
+      "time_aest": "2026-10-01T11:15:31+10:00",
+      "action": "BUY",
+      "token": "PUMPKINU",
+      "mint": "B7yfFFkX4NtxtQwGdegi2DuaVssitc3FGpqF2pxUH1zM",
+      "sol": 0.116743119,
+      "tokens": 52931.516004,
+      "usd_at_time": 13.7757,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-01T11:15:00+10:00",
+      "fee_sol": 0.001049001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0,
+        "platform_sol": 0.000969
+      },
+      "rent_sol": 0.00151384,
+      "price_expected": null,
+      "price_filled": 0.000002175438882,
+      "tx": "5N6GL8XLvLvbdBCDpQv64SrTGTtbvhRcSe324gumM2DFTuF9C2xZUehceRGNNLA8dnPr76A9VkQ3M4zj1PQpU9yq",
+      "reason": "User put 50% of free SOL into Argus's launch-day pick; under-$20 set-and-forget hold to 101x",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": 45000,
+        "volume24h_usd": 752000,
+        "age_hours": 5.1,
+        "top10_pct": 15,
+        "rugcheck_score": 1,
+        "filters_passed": [
+          "volume24h_250k",
+          "mint_freeze_revoked",
+          "lp_locked_or_burned",
+          "top10_lt_25pct",
+          "dev_insiders_lt_15pct",
+          "rugcheck_no_warnings"
+        ],
+        "filters_failed": [
+          "liquidity_100k",
+          "age_12h_14d",
+          "not_after_pump"
+        ],
+        "source": "Argus/RugCheck at buy (~11:09 AEST)",
+        "notes": "Data taken ~11:09 AEST, ~6 min before the 11:15:31 block time. Mint+freeze revoked, LP locked, RugCheck clean, no insiders, dev balance 0. Not after pump failed: near ATH, not dipped. Extra flags (not schema filters): paid boosts 50, sells > buys."
+      },
+      "exit_reason": null,
+      "planned_targets": {
+        "rule_set": "test-under-$20",
+        "take_profit": [
+          {
+            "x": 101,
+            "sell_frac": null
+          }
+        ],
+        "stop_x": null,
+        "trail_pct": null,
+        "time_stop_hours": null,
+        "keep_min_frac": 0.1,
+        "note": "Under-$20 rule: hold to 101x (~11.79 SOL), keep >= 10%."
       },
       "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "verified_chain": true,
