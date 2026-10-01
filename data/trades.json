@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-02T06:42:45+10:00",
+  "updated_aest": "2026-10-02T09:12:21+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -1519,6 +1519,40 @@
       "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "verified_chain": true,
       "unverified": [
+        "price_expected"
+      ],
+      "trader": "agent",
+      "trader_source": "logged"
+    },
+    {
+      "id": "sell-dark-TjUGSUqF",
+      "time_aest": "2026-10-02T09:11:41+10:00",
+      "action": "SELL",
+      "token": "DARK",
+      "mint": "7KEPApdbBMByrmqihz3bht2uMhFQcatjfSFQCKq66kH3",
+      "sol": 0.079702056,
+      "tokens": 43271.908694,
+      "usd_at_time": 9.4152,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T09:11:00+10:00",
+      "fee_sol": 0.000086001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.000001843876533,
+      "tx": "TjUGSUqFzQ78mEUdZuDLexozo59uPwCUUWufRT8BqtPLdjz31GSL3o5wLyPUQopZ4vqcaanZoTzE3mjdUwKzzeK",
+      "reason": "User said \"Sell all DARK\" (manual override of the hold rule). ~+83% vs 0.0436 SOL cost.",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": "manual",
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "platform_fee_sol",
         "price_expected"
       ],
       "trader": "agent",
