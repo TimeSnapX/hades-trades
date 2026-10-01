@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-02T09:17:25+10:00",
+  "updated_aest": "2026-10-02T09:22:24+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -141,8 +141,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-inuink-2cvToVLX",
@@ -230,8 +230,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "deposit-sol-5HuoAZ3w",
@@ -317,8 +317,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "deposit-sol-4fNqr2uM",
@@ -413,8 +413,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "buy-si-3knvAmdY",
@@ -472,8 +472,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "buy-ss-UkBqgzr8",
@@ -533,8 +533,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "deposit-sol-4qDtpEwm",
@@ -631,8 +631,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "buy-degen-5jtK5Aq9",
@@ -693,8 +693,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-degen-3nyX9sLX",
@@ -727,8 +727,8 @@
         "platform_fee_sol",
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-pumpkinu-63rcqPBn",
@@ -760,8 +760,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-resi-3HJqVtM4",
@@ -794,8 +794,8 @@
         "platform_fee_sol",
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-payday-4z33FHQH",
@@ -827,8 +827,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-si-3VqSE4Hw",
@@ -861,8 +861,8 @@
         "platform_fee_sol",
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-ss-4HgMzCyx",
@@ -895,8 +895,8 @@
         "platform_fee_sol",
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "withdraw-sol-3r2MYM7P",
@@ -1552,8 +1552,8 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-catcher-3PBs5tQU",
@@ -1650,8 +1650,8 @@
         "platform_fee_sol",
         "price_expected"
       ],
-      "trader": "agent",
-      "trader_source": "logged"
+      "trader": "human",
+      "trader_source": "manual_override"
     },
     {
       "id": "sell-uinhim-EEhXBw7w",
