@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-02T14:31:04+10:00",
+  "updated_aest": "2026-10-02T15:46:39+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -1835,7 +1835,7 @@
         "platform_fee_sol",
         "price_expected"
       ],
-      "trader": "agent",
+      "trader": "human",
       "trader_source": "logged"
     },
     {
@@ -1881,7 +1881,7 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
+      "trader": "human",
       "trader_source": "logged"
     },
     {
@@ -1914,7 +1914,48 @@
       "unverified": [
         "price_expected"
       ],
-      "trader": "agent",
+      "trader": "human",
+      "trader_source": "logged"
+    },
+    {
+      "id": "buy-octo-5eqthCYk",
+      "time_aest": "2026-10-02T14:57:24+10:00",
+      "action": "BUY",
+      "token": "OCTO",
+      "mint": "GoADAwux19tGxb3W4ykPzZz8p5JCSYaxBRpuW7s9pump",
+      "sol": 0.229977338,
+      "tokens": 19984.993859,
+      "usd_at_time": 28.3148,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T14:57:00+10:00",
+      "fee_sol": 0.002052947,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.00001898,
+        "platform_sol": 0.001953966
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.000011502548293,
+      "tx": "5eqthCYkUcw3odQ7CM2yA17XBepJ5z9ysZcytUcp7kFptPVSX1De52UjEJPvpFeN4d7Txyg9M3jLnHxUtr11dh5Y",
+      "reason": "User executed the OCTO rebuy from his phone; Phantom swap API returned 403 to Hades. User explicitly classifies this trade as human.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": []
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ],
+      "trader": "human",
       "trader_source": "logged"
     }
   ],
