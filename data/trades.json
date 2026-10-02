@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-02T16:28:14+10:00",
+  "updated_aest": "2026-10-02T20:03:51+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -2103,6 +2103,200 @@
       "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "verified_chain": true,
       "unverified": [
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "buy-hotbot-4HxNcfNY",
+      "time_aest": "2026-10-02T17:16:34+10:00",
+      "action": "BUY",
+      "token": "HOTBOT",
+      "mint": "8nnaeWCw8mUypcGAgbmSuzAT85uWx4UN12adDrMhXrGF",
+      "sol": 0.37302292,
+      "tokens": 75521.883253,
+      "usd_at_time": 45.2402,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T17:16:00+10:00",
+      "fee_sol": 0.003246284,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000009215,
+        "platform_sol": 0.003157068
+      },
+      "rent_sol": 0.00151384,
+      "price_expected": null,
+      "price_filled": 0.00000491804293,
+      "tx": "4HxNcfNYb6VqkBXRbw46ZS8bxZeXPqCeTM4BA12Wtoa2bYL3o6NcVg51M9APsTFRfLW4xCD5BgcaaP7cUY7ubVxG",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": [],
+        "source": "inferred: unlogged on-chain trade (manual, Phantom)"
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "buy-hotbot-3PYoFtrm",
+      "time_aest": "2026-10-02T17:22:11+10:00",
+      "action": "BUY",
+      "token": "HOTBOT",
+      "mint": "8nnaeWCw8mUypcGAgbmSuzAT85uWx4UN12adDrMhXrGF",
+      "sol": 0.362917001,
+      "tokens": 87568.269366,
+      "usd_at_time": 44.0037,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T17:22:00+10:00",
+      "fee_sol": 0.003183994,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000020049,
+        "platform_sol": 0.003083944
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.00000414324679,
+      "tx": "3PYoFtrmzAd7JXrhj3iYd3eQy7SmiGTgwFDEDtPQSxsPfiyz91VyYrzkWo8UTmL54v5qxeoxzcbpstDaCnFYXJ7g",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": [],
+        "source": "inferred: unlogged on-chain trade (manual, Phantom)"
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "sell-hotbot-64p8zMpi",
+      "time_aest": "2026-10-02T19:50:50+10:00",
+      "action": "SELL",
+      "token": "HOTBOT",
+      "mint": "8nnaeWCw8mUypcGAgbmSuzAT85uWx4UN12adDrMhXrGF",
+      "sol": 0.720164166,
+      "tokens": 163090.152619,
+      "usd_at_time": 87.7088,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T19:50:00+10:00",
+      "fee_sol": 0.000086001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.000004416270115,
+      "tx": "64p8zMpi7YgP3z3XWAXy4dMTKJyLgrNHGXUsHvcr9wZvwCTw4gVffEqBxyWYf2jxwgkL4tADnSg83NQF5iCmPpvZ",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": "manual",
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "platform_fee_sol",
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "buy-blackholes-2XvtMMjM",
+      "time_aest": "2026-10-02T19:52:00+10:00",
+      "action": "BUY",
+      "token": "BlackHoles",
+      "mint": "6qs8xGPpmyHnW7LpySq9iCs36kT7utFBt8mwM1ATpump",
+      "sol": 0.727150901,
+      "tokens": 278230.768991,
+      "usd_at_time": 88.5888,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T19:52:00+10:00",
+      "fee_sol": 0.006266971,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006927,
+        "platform_sol": 0.006180043
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.00000261316883,
+      "tx": "2XvtMMjMeoHniCdLwBTSMgBYq3fVow7j2pSBsVwpMFs8aDzyanm7MqFJSPkRxpycvfJcGTzUADcAP3G8gmGv4Y9y",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": [],
+        "source": "inferred: unlogged on-chain trade (manual, Phantom)"
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "sell-blackholes-msf7iy7V",
+      "time_aest": "2026-10-02T20:01:19+10:00",
+      "action": "SELL",
+      "token": "BlackHoles",
+      "mint": "6qs8xGPpmyHnW7LpySq9iCs36kT7utFBt8mwM1ATpump",
+      "sol": 0.869857044,
+      "tokens": 278230.768991,
+      "usd_at_time": 105.9138,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T20:01:00+10:00",
+      "fee_sol": 0.000086001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.000003126696045,
+      "tx": "msf7iy7VagSCe1KD1fnSkNFFTXMQdu5di28qmKXkuZ8qHibuEdsv3wjSnHnHZhn5sp96iFUXgYE1BowSS2DmxFX",
+      "reason": "manual (user)",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": "manual",
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "platform_fee_sol",
         "price_expected"
       ],
       "trader": "human",
