@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-02T15:46:39+10:00",
+  "updated_aest": "2026-10-02T15:48:40+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -1953,6 +1953,81 @@
       "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "verified_chain": true,
       "unverified": [
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "logged"
+    },
+    {
+      "id": "buy-octo-3QhtS1YL",
+      "time_aest": "2026-10-02T15:11:21+10:00",
+      "action": "BUY",
+      "token": "OCTO",
+      "mint": "GoADAwux19tGxb3W4ykPzZz8p5JCSYaxBRpuW7s9pump",
+      "sol": 0.218959836,
+      "tokens": 21608.469856,
+      "usd_at_time": 27.0021,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T15:11:00+10:00",
+      "fee_sol": 0.001948649,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.00000824,
+        "platform_sol": 0.001860408
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.00001012897241,
+      "tx": "3QhtS1YLrFSE4hTGUJUX96vgkdUwyRx37tRQb6qmi9qKKPc6BLor5ZL3oYe5u2Yo66b3j1hFejbAcjnzKjGJsgHq",
+      "reason": "User phone OCTO trade; user asked all recent trades to be logged as human.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": []
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "logged"
+    },
+    {
+      "id": "sell-octo-3WsvggKy",
+      "time_aest": "2026-10-02T15:43:29+10:00",
+      "action": "SELL",
+      "token": "OCTO",
+      "mint": "GoADAwux19tGxb3W4ykPzZz8p5JCSYaxBRpuW7s9pump",
+      "sol": 0.469862147,
+      "tokens": 41593.463715,
+      "usd_at_time": 57.3843,
+      "usd_source": "kraken SOLUSD 1m close @ 2026-10-02T15:43:00+10:00",
+      "fee_sol": 0.000086001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0.000006,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": 0.000011298605743,
+      "tx": "3WsvggKyrWVQmJbyk1y9qjCQgWFBn2uwULHjSV7imeJEfAdnaNBmbiFeivcB9AfAf7spqVhQoRJNueHz5VYr5be",
+      "reason": "User phone OCTO trade; user asked all recent trades to be logged as human.",
+      "run": "test",
+      "entry_snapshot": null,
+      "exit_reason": "manual",
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": true,
+      "unverified": [
+        "platform_fee_sol",
         "price_expected"
       ],
       "trader": "human",
