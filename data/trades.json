@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-05T09:48:22+10:00",
+  "updated_aest": "2026-10-05T09:52:26+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -2749,7 +2749,7 @@
       "action": "BUY",
       "token": "zDOG",
       "mint": "AYHHpvAVf27Rv64PBPXHEJKg8MXaJ35vmsn8GV6wFigf",
-      "sol": 0.001660801,
+      "sol": 0.140309297,
       "tokens": 78234.327501,
       "usd_at_time": null,
       "usd_source": null,
@@ -2763,7 +2763,7 @@
       "price_expected": null,
       "price_filled": null,
       "tx": "V1fa8Qey6vH3M3BgkvQfWaatWq1ypv4Jtcb77XaS5iXftwZA13D6YcNKp6eGTic1dwkPZHEziRTrg9HHoA1RiZg",
-      "reason": "User's Privacy Dog buy via phone; token-to-token swap leg, logged as human.",
+      "reason": "User's Privacy Dog buy via phone; DFlow routed SOL→ZEC (A7bdi)→zDOG; logged as human.",
       "run": "test",
       "entry_snapshot": {
         "liquidity_usd": null,
@@ -2774,7 +2774,7 @@
         "filters_passed": [],
         "filters_failed": [],
         "source": "manual classification of MULTI_TOKEN wallet trade",
-        "notes": "Token-to-token Privacy Dog buy leg; paid 0.01171463 A7bdi (mint A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS); native SOL change is fees/rent only."
+        "notes": "Leg 1: SOL→ZEC (A7bdi)→zDOG through DFlow; 0.138648496 SOL out in linked leg plus 0.001660801 SOL fees/rent."
       },
       "exit_reason": null,
       "planned_targets": null,
@@ -2782,11 +2782,13 @@
       "verified_chain": false,
       "unverified": [
         "action_classification",
-        "non_sol_cost",
         "price_expected"
       ],
       "trader": "human",
-      "trader_source": "inferred"
+      "trader_source": "inferred",
+      "linked_txs": [
+        "27ENSjGeXLmykskqMWU1TuE6x69YWECxpiQwUMPDc5qbFsJH3yqxzrYJPDMsAMPb96A8591awA12JZLdmxjqZ1zQ"
+      ]
     },
     {
       "id": "buy-zdog-5NBYojjW",
@@ -2794,7 +2796,7 @@
       "action": "BUY",
       "token": "zDOG",
       "mint": "AYHHpvAVf27Rv64PBPXHEJKg8MXaJ35vmsn8GV6wFigf",
-      "sol": 0.000086001,
+      "sol": 0.135856432,
       "tokens": 94657.402598,
       "usd_at_time": null,
       "usd_source": null,
@@ -2808,7 +2810,7 @@
       "price_expected": null,
       "price_filled": null,
       "tx": "5NBYojjWFMiKykQQuTsFJ7wM73w6A7YjGLTqybEpsh8jD2BCEYzZ8BCPViHvUr3rVkL2GB5SWz73Kz25auu729wd",
-      "reason": "User's Privacy Dog buy via phone; token-to-token swap leg, logged as human.",
+      "reason": "User's Privacy Dog buy via phone; DFlow routed SOL→ZEC (A7bdi)→zDOG; logged as human.",
       "run": "test",
       "entry_snapshot": {
         "liquidity_usd": null,
@@ -2819,7 +2821,7 @@
         "filters_passed": [],
         "filters_failed": [],
         "source": "manual classification of MULTI_TOKEN wallet trade",
-        "notes": "Token-to-token Privacy Dog buy leg; paid 0.01174102 A7bdi (mint A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS); native SOL change is fees only."
+        "notes": "Leg 2: SOL→ZEC (A7bdi)→zDOG through DFlow; 0.135770431 SOL out in linked leg plus 0.000086001 SOL receipt-leg fee."
       },
       "exit_reason": null,
       "planned_targets": null,
@@ -2827,11 +2829,13 @@
       "verified_chain": false,
       "unverified": [
         "action_classification",
-        "non_sol_cost",
         "price_expected"
       ],
       "trader": "human",
-      "trader_source": "inferred"
+      "trader_source": "inferred",
+      "linked_txs": [
+        "5pW7RrpPGw2YCTBdPujpgcwekPcz588feqcR2C4kgbTAw3wKnzjz7pAbwYfjH6QBtef2LkEq7YEFuJ3n1dP"
+      ]
     }
   ],
   "last_manager_check": {
