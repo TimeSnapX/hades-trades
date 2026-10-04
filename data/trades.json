@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-05T09:23:03+10:00",
+  "updated_aest": "2026-10-05T09:48:22+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -2740,6 +2740,96 @@
       "token_program": null,
       "verified_chain": true,
       "unverified": [],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "buy-zdog-V1fa8Qey",
+      "time_aest": "2026-10-05T09:34:41+10:00",
+      "action": "BUY",
+      "token": "zDOG",
+      "mint": "AYHHpvAVf27Rv64PBPXHEJKg8MXaJ35vmsn8GV6wFigf",
+      "sol": 0.001660801,
+      "tokens": 78234.327501,
+      "usd_at_time": null,
+      "usd_source": null,
+      "fee_sol": 0.000080001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0,
+        "platform_sol": null
+      },
+      "rent_sol": 0.0015748,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "V1fa8Qey6vH3M3BgkvQfWaatWq1ypv4Jtcb77XaS5iXftwZA13D6YcNKp6eGTic1dwkPZHEziRTrg9HHoA1RiZg",
+      "reason": "User's Privacy Dog buy via phone; token-to-token swap leg, logged as human.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": [],
+        "source": "manual classification of MULTI_TOKEN wallet trade",
+        "notes": "Token-to-token Privacy Dog buy leg; paid 0.01171463 A7bdi (mint A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS); native SOL change is fees/rent only."
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": false,
+      "unverified": [
+        "action_classification",
+        "non_sol_cost",
+        "price_expected"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "buy-zdog-5NBYojjW",
+      "time_aest": "2026-10-05T09:36:32+10:00",
+      "action": "BUY",
+      "token": "zDOG",
+      "mint": "AYHHpvAVf27Rv64PBPXHEJKg8MXaJ35vmsn8GV6wFigf",
+      "sol": 0.000086001,
+      "tokens": 94657.402598,
+      "usd_at_time": null,
+      "usd_source": null,
+      "fee_sol": 0.000080001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "5NBYojjWFMiKykQQuTsFJ7wM73w6A7YjGLTqybEpsh8jD2BCEYzZ8BCPViHvUr3rVkL2GB5SWz73Kz25auu729wd",
+      "reason": "User's Privacy Dog buy via phone; token-to-token swap leg, logged as human.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": [],
+        "source": "manual classification of MULTI_TOKEN wallet trade",
+        "notes": "Token-to-token Privacy Dog buy leg; paid 0.01174102 A7bdi (mint A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS); native SOL change is fees only."
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": false,
+      "unverified": [
+        "action_classification",
+        "non_sol_cost",
+        "price_expected"
+      ],
       "trader": "human",
       "trader_source": "inferred"
     }
