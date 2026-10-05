@@ -3,7 +3,7 @@
   "wallet": "CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "gmgn": "https://gmgn.ai/sol/address/CUSovgfxny4rpNf3S6wwqYE2gGHABZdyVUa4QEoryS8f",
   "real_run_start_aest": "2026-10-06T21:12:00+10:00",
-  "updated_aest": "2026-10-05T09:52:26+10:00",
+  "updated_aest": "2026-10-05T17:05:17+10:00",
   "trades": [
     {
       "id": "deposit-sol-eZxuLLHT",
@@ -2835,6 +2835,144 @@
       "trader_source": "inferred",
       "linked_txs": [
         "5pW7RrpPGw2YCTBdPujpgcwekPcz588feqcR2C4kgbTAw3wKnzjz7pAbwYfjH6QBtef2LkEq7YEFuJ3n1dP"
+      ]
+    },
+    {
+      "id": "buy-zdog-3iCxiW5B",
+      "time_aest": "2026-10-05T14:14:44+10:00",
+      "action": "BUY",
+      "token": "zDOG",
+      "mint": "AYHHpvAVf27Rv64PBPXHEJKg8MXaJ35vmsn8GV6wFigf",
+      "sol": 0.002301091,
+      "tokens": 5577.740509,
+      "usd_at_time": null,
+      "usd_source": null,
+      "fee_sol": 0.000080001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "3iCxiW5BU48E17cgnyTWPPnCQ898km4TyH7mQJXLAttdxuShMCCUN5wt4JhCDuubZoiZtcd18cA4n6qPHEoGB4K9",
+      "reason": "User's Privacy Dog afternoon add via phone; ZEC (A7bdi)→zDOG through Jupiter; logged as human.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": [],
+        "source": "manual classification of MULTI_TOKEN wallet trade",
+        "notes": "Afternoon add: ZEC→zDOG via Jupiter. SOL cost = 0.00021038 ZEC × ZEC/SOL spot (ZEC $1329.05, SOL $121.51). Funded from morning leftover ZEC + StonkFun fee drips; no new SOL→ZEC leg."
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": false,
+      "unverified": [
+        "action_classification",
+        "price_expected",
+        "sol"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "buy-zdog-2PQeuMpZ",
+      "time_aest": "2026-10-05T14:15:33+10:00",
+      "action": "BUY",
+      "token": "zDOG",
+      "mint": "AYHHpvAVf27Rv64PBPXHEJKg8MXaJ35vmsn8GV6wFigf",
+      "sol": 0.016016305,
+      "tokens": 38840.348218,
+      "usd_at_time": null,
+      "usd_source": null,
+      "fee_sol": 0.000080001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "2PQeuMpZmaYigRhaBwNUJxFk6Tov2aNTrLWuyEvsRtJ1RDAKUcRmL53k3RbKFj1Rz3BaWhLwqX21ynF1iFhWDH5x",
+      "reason": "User's Privacy Dog afternoon add via phone; ZEC (A7bdi)→zDOG through Jupiter; logged as human.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": [],
+        "source": "manual classification of MULTI_TOKEN wallet trade",
+        "notes": "Afternoon add: ZEC→zDOG via Jupiter. SOL cost = 0.00146431 ZEC × ZEC/SOL spot (ZEC $1329.05, SOL $121.51). Funded from morning leftover ZEC + StonkFun fee drips; no new SOL→ZEC leg."
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": false,
+      "unverified": [
+        "action_classification",
+        "price_expected",
+        "sol"
+      ],
+      "trader": "human",
+      "trader_source": "inferred"
+    },
+    {
+      "id": "buy-zdog-4FJSFZba",
+      "time_aest": "2026-10-05T16:41:11+10:00",
+      "action": "BUY",
+      "token": "zDOG",
+      "mint": "AYHHpvAVf27Rv64PBPXHEJKg8MXaJ35vmsn8GV6wFigf",
+      "sol": 0.109,
+      "tokens": 253932.19019,
+      "usd_at_time": null,
+      "usd_source": null,
+      "fee_sol": 0.000080001,
+      "fee_breakdown": {
+        "network_sol": 0.000080001,
+        "tip_sol": 0,
+        "platform_sol": null
+      },
+      "rent_sol": 0,
+      "price_expected": null,
+      "price_filled": null,
+      "tx": "4FJSFZbaKiRMYAiFxhZEFVCmGMPXcFeXKyhgXLTMpmo5Rp7N3g13v6yhMXNG9ucgShpDPkc6PrrtEH974eED5TKC",
+      "reason": "User's Privacy Dog afternoon add via phone; ZEC (A7bdi)→zDOG through DFlow; SOL cost estimated from ZEC spot; logged as human.",
+      "run": "test",
+      "entry_snapshot": {
+        "liquidity_usd": null,
+        "volume24h_usd": null,
+        "age_hours": null,
+        "top10_pct": null,
+        "rugcheck_score": null,
+        "filters_passed": [],
+        "filters_failed": [],
+        "source": "manual classification of MULTI_TOKEN wallet trade",
+        "notes": "Afternoon add: ZEC→zDOG via DFlow. SOL cost ~0.109 is an estimate (0.00992424 ZEC × ZEC/SOL spot ≈0.10855, rounded). ZEC fill arrived via DFlow/Jupiter without SOL leaving this wallet; payment asset on-wallet unknown. Linked fill: 2VbvDUcE…"
+      },
+      "exit_reason": null,
+      "planned_targets": null,
+      "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "verified_chain": false,
+      "unverified": [
+        "action_classification",
+        "price_expected",
+        "sol"
+      ],
+      "trader": "human",
+      "trader_source": "inferred",
+      "linked_txs": [
+        "2VbvDUcEpKQ3qVuVxDRwvUkjkPbbDJ4ujamC3RmKkaw1ThgD5FzDByoJuFkT6pfrXnJ9nji1YFNd4VYrtbvvTfEy"
       ]
     }
   ],
